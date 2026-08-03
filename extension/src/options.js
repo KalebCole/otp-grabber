@@ -23,6 +23,12 @@ form.addEventListener("submit", async (event) => {
   if (!token) return setStatus("Enter your agent token.", "error");
   button.disabled = true; setStatus("Testing your private connection…");
   try {
+    const permissionOrigin = `${new URL(validated.value).origin}/*`;
+    const granted = await chrome.permissions.request({ origins: [permissionOrigin] });
+    if (!granted) {
+      setStatus("Allow access to this private agent address to continue.", "error");
+      return;
+    }
     const api = createApiClient({ serverUrl: validated.value, token });
     await api.health();
     await chrome.storage.local.set({ serverUrl: validated.value, token });

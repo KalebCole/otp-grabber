@@ -2,7 +2,6 @@ import { copyThenAcknowledge, createApiClient } from "./api.js";
 import { derivePopupState, relativeAge } from "./model.js";
 
 const state = document.querySelector("#state");
-const refresh = document.querySelector("#refresh");
 const historyRegion = document.querySelector("#history-region");
 const historyToggle = document.querySelector("#history-toggle");
 const historyList = document.querySelector("#history-list");
@@ -17,12 +16,10 @@ function render(result) {
   state.setAttribute("aria-busy", "false");
   const view = derivePopupState(result);
   if (view.kind === "offline") return showSetup("Your agent is unavailable. Check the private connection.");
-  if (view.kind === "empty") { state.innerHTML = '<p>No recent verification code was found.</p><button class="text-button" type="button" data-refresh>Refresh</button>'; wireRefresh(); return; }
+  if (view.kind === "empty") { state.innerHTML = '<p>No recent verification code was found.</p>'; return; }
   const { latest } = view;
-  state.innerHTML = `<div class="success-panel"><p class="meta">${esc(latest.source === "gmail" ? "Gmail" : "Messages")} · ${esc(relativeAge(latest.timestamp_ms))}</p><div class="code" role="text" aria-label="Code ${esc(latest.code.split("").join(" "))}">${esc(latest.code)}</div><p class="meta">${esc(latest.sender || latest.subject || "Verification code")}</p><p class="copy-status">Copied to clipboard</p></div>${view.kind === "partial" ? `<p class="warning">${esc(view.errors.map((error) => `${error.source}: ${error.message}`).join(" · "))}</p>` : ""}`;
+  state.innerHTML = `<div class="success-panel"><p class="meta">${esc(latest.source === "gmail" ? "Gmail" : "Messages")} · ${esc(relativeAge(latest.timestamp_ms))}</p><div class="code" role="text" aria-label="Code ${esc(latest.code.split("").join(" "))}">${esc(latest.code)}</div><p class="meta">${esc(latest.sender || latest.subject || "Verification code")}</p><p class="copy-status">Copying…</p></div>${view.kind === "partial" ? `<p class="warning">${esc(view.errors.map((error) => `${error.source}: ${error.message}`).join(" · "))}</p>` : ""}`;
 }
-
-function wireRefresh() { state.querySelector("[data-refresh]")?.addEventListener("click", load); }
 async function copyRecord(record) {
   await navigator.clipboard.writeText(record.code);
 }
@@ -50,7 +47,7 @@ async function load() {
       try {
         const outcome = await copyThenAcknowledge({ record: latestResult.latest, copy: copyRecord, archive: (id) => api.archive(id) });
         const copyStatus = state.querySelector(".copy-status");
-        if (copyStatus && outcome.archive === "failed") copyStatus.textContent = "Copied — Gmail archive will retry next time.";
+        if (copyStatus) copyStatus.textContent = outcome.archive === "failed" ? "Copied — Gmail archive will retry next time." : "Copied to clipboard";
       } catch {
         const copyStatus = state.querySelector(".copy-status");
         if (copyStatus) { copyStatus.textContent = "Code ready to copy"; copyStatus.classList.add("error-text"); }
@@ -60,6 +57,5 @@ async function load() {
   } catch { showSetup("Your agent is unavailable. Check the private connection."); }
 }
 
-refresh.addEventListener("click", load);
 historyToggle.addEventListener("click", () => { const open = historyToggle.getAttribute("aria-expanded") !== "true"; historyToggle.setAttribute("aria-expanded", String(open)); historyList.hidden = !open; });
 load();
