@@ -11,7 +11,13 @@ CONFIG="${APP_DIR}/agent.json"
 LOG_DIR="${HOME}/Library/Logs/OTP Grabber"
 PLIST_DIR="${HOME}/Library/LaunchAgents"
 PLIST="${PLIST_DIR}/com.otpgrabber.agent.plist"
-PYTHON_BIN="${PYTHON_BIN:-python3}"
+if [[ -z "${PYTHON_BIN:-}" ]]; then
+  if command -v python3.11 >/dev/null 2>&1; then
+    PYTHON_BIN="$(command -v python3.11)"
+  else
+    PYTHON_BIN="python3"
+  fi
+fi
 LABEL="com.otpgrabber.agent"
 
 if (( DRY_RUN )); then

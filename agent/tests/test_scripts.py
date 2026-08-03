@@ -32,6 +32,8 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("GOOGLE_WORKSPACE_CLI_KEYRING_BACKEND", template)
         self.assertIn("StandardErrorPath", template)
         self.assertIn("StandardOutPath", template)
+        installer = (SCRIPTS / "install-agent.sh").read_text()
+        self.assertIn("command -v python3.11", installer)
 
     def test_uninstall_dry_run_is_idempotent(self):
         result = self.run_script("uninstall-agent.sh", "--dry-run")
