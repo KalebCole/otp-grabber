@@ -190,3 +190,23 @@ Commands were run from the worktree root.
 - Command: `make test-python`
 - Expected: the complete Python suite remains green.
 - Observed: exit 0; 28 tests ran and passed (`OK`).
+
+### Task 3 spec-review concurrency coverage green
+
+- The two archive-concurrency tests use condition/event handshakes rather than
+  sleeps. Existing behavior passed on the first run, so no red result was
+  recorded.
+- Command: `python3 -m unittest
+  agent.tests.test_service.ArchiveAcknowledgementTests.test_concurrent_acknowledgements_share_one_successful_archive_attempt
+  agent.tests.test_service.ArchiveAcknowledgementTests.test_concurrent_archive_failure_reaches_both_callers_and_can_retry
+  -v`
+- Expected: concurrent callers share one external attempt; success returns one
+  new and one idempotent result, while one failure reaches both callers and a
+  later retry performs a second external attempt successfully.
+- Observed: exit 0; both focused tests ran and passed (`Ran 2 tests`, `OK`).
+- Command: `python3 -m unittest agent.tests.test_service -v`
+- Expected: the complete focused service suite remains green.
+- Observed: exit 0; 15 tests ran and passed (`OK`).
+- Command: `make test-python`
+- Expected: the complete Python suite remains green.
+- Observed: exit 0; 30 tests ran and passed (`OK`).

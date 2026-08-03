@@ -68,8 +68,14 @@ class ArchiveCapableSource(StubSource):
 
 
 class BlockingArchiveSource(ArchiveCapableSource):
-    def __init__(self, responses, archive_started, archive_release):
-        super().__init__(responses)
+    def __init__(
+        self,
+        responses,
+        archive_started,
+        archive_release,
+        archive_outcomes=(),
+    ):
+        super().__init__(responses, archive_outcomes)
         self._archive_started = archive_started
         self._archive_release = archive_release
 
@@ -78,6 +84,19 @@ class BlockingArchiveSource(ArchiveCapableSource):
         self._archive_started.set()
         if not self._archive_release.wait(timeout=5):
             raise RuntimeError("archive release was not signaled")
+        outcome = next(self._archive_outcomes, None)
+        if isinstance(outcome, BaseException):
+            raise outcome
+
+
+class WaitObservedCondition(threading.Condition):
+    def __init__(self, lock, wait_started):
+        super().__init__(lock)
+        self._wait_started = wait_started
+
+    def wait(self, timeout=None):
+        self._wait_started.set()
+        return super().wait(timeout)
 
 
 class RecordingArchiveRunner:
@@ -259,6 +278,50 @@ class ArchiveAcknowledgementTests(unittest.TestCase):
             clock_ms=lambda: NOW_MS,
         )
 
+    def acknowledge_concurrently(
+        self,
+        service,
+        message_id,
+        archive_started,
+        archive_release,
+    ):
+        waiter_started = threading.Event()
+        service._archive_condition = WaitObservedCondition(
+            service._lock,
+            waiter_started,
+        )
+        results = [None, None]
+        errors = [None, None]
+
+        def acknowledge(index):
+            try:
+                results[index] = service.acknowledge_archive(message_id)
+            except BaseException as error:
+                errors[index] = error
+
+        first = threading.Thread(target=acknowledge, args=(0,))
+        second = threading.Thread(target=acknowledge, args=(1,))
+        first.start()
+        try:
+            self.assertTrue(
+                archive_started.wait(timeout=1),
+                "external archive call did not start",
+            )
+            second.start()
+            self.assertTrue(
+                waiter_started.wait(timeout=1),
+                "concurrent acknowledgement did not wait for the active attempt",
+            )
+        finally:
+            archive_release.set()
+            first.join(timeout=1)
+            if second.ident is not None:
+                second.join(timeout=1)
+
+        self.assertFalse(first.is_alive())
+        self.assertFalse(second.is_alive())
+        return results, errors
+
     def test_rejects_unknown_and_returned_non_gmail_ids(self):
         gmail = ArchiveCapableSource([[]])
         messages = StubSource(
@@ -358,6 +421,66 @@ class ArchiveAcknowledgementTests(unittest.TestCase):
         self.assertFalse(history_thread.is_alive())
         self.assertEqual(len(archive_results), 1)
         self.assertEqual(len(history_results), 1)
+
+    def test_concurrent_acknowledgements_share_one_successful_archive_attempt(self):
+        archive_started = threading.Event()
+        archive_release = threading.Event()
+        gmail = BlockingArchiveSource(
+            [[record("g-1", "gmail", "123456", NOW_MS - 10_000)]],
+            archive_started,
+            archive_release,
+        )
+        service = self.make_service(gmail, StubSource([[]]))
+        service.poll_latest()
+
+        results, errors = self.acknowledge_concurrently(
+            service,
+            "g-1",
+            archive_started,
+            archive_release,
+        )
+
+        self.assertEqual(errors, [None, None])
+        self.assertEqual(gmail.archive_calls, ["g-1"])
+        self.assertEqual(
+            sorted(result.already_archived for result in results),
+            [False, True],
+        )
+
+    def test_concurrent_archive_failure_reaches_both_callers_and_can_retry(self):
+        archive_started = threading.Event()
+        archive_release = threading.Event()
+        gmail = BlockingArchiveSource(
+            [[record("g-1", "gmail", "123456", NOW_MS - 10_000)]],
+            archive_started,
+            archive_release,
+            [RuntimeError("modify failed"), None],
+        )
+        service = self.make_service(gmail, StubSource([[]]))
+        service.poll_latest()
+
+        results, errors = self.acknowledge_concurrently(
+            service,
+            "g-1",
+            archive_started,
+            archive_release,
+        )
+
+        self.assertEqual(results, [None, None])
+        self.assertTrue(
+            all(
+                isinstance(error, RuntimeError)
+                and str(error) == "modify failed"
+                for error in errors
+            )
+        )
+        self.assertIs(errors[0], errors[1])
+        self.assertEqual(gmail.archive_calls, ["g-1"])
+
+        retry = service.acknowledge_archive("g-1")
+
+        self.assertFalse(retry.already_archived)
+        self.assertEqual(gmail.archive_calls, ["g-1", "g-1"])
 
     def test_non_latest_gmail_id_becomes_eligible_only_when_history_is_returned(self):
         gmail = ArchiveCapableSource(
