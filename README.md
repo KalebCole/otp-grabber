@@ -25,7 +25,7 @@ On the Mac that owns Gmail and Messages access:
 git clone https://github.com/KalebCole/otp-grabber.git
 cd otp-grabber
 PYTHON_BIN="$(command -v python3.11)" scripts/install-agent.sh
-scripts/serve-tailnet.sh --port 8787
+scripts/serve-tailnet.sh --port 8877
 ```
 
 Prerequisites:
@@ -62,7 +62,7 @@ Download the [latest release](https://github.com/KalebCole/otp-grabber/releases/
 
 ```json
 {
-  "server_url": "https://source-device.example-tailnet.ts.net:8787",
+  "server_url": "https://source-device.example-tailnet.ts.net:8877",
   "token": "paste-the-source-agent-token"
 }
 ```

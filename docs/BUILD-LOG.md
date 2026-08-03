@@ -423,10 +423,9 @@ Date: 2026-08-02
 ### Full verification green
 
 - Command: `PYTHON=python3.11 make test`
-- Observed: 46 Python tests, 16 Chrome extension tests, and 5 landing-page tests
-  passed. The Swift target and guarded Swift Testing suite compiled under the
-  Command Line Tools runtime; executable Swift tests require full Xcode and are
-  scheduled for MacBook verification.
+- Observed: 46 Python tests, 16 Chrome extension tests, 5 landing-page tests,
+  and 8 framework-free Swift client checks passed. The Swift package also built
+  successfully under Command Line Tools on both the source Mac and MacBook.
 - Command: `make check`
 - Observed: repository hygiene passed and Impeccable detector returned `[]`.
 - Command: `VERSION=0.1.0 make package`
@@ -434,4 +433,24 @@ Date: 2026-08-02
   `codesign --verify --deep --strict` and `plutil -lint` passed.
 - Workflow YAML parsed successfully for verification, Pages, and release jobs.
 - `git diff --check` passed.
+
+### Live private-network verification
+
+- Installed the source LaunchAgent on the Mac mini. It runs on
+  `127.0.0.1:8877`; missing and invalid bearer tokens both return `401`.
+- Enabled Tailscale Serve on HTTPS 8877 and verified it is tailnet-only. Removed
+  the pre-existing Funnel exposure, then restored Hermes and call-me as
+  tailnet-only Serve routes.
+- Sent one synthetic verification email to the owner's own Gmail account. The
+  agent returned the exact fresh Gmail code, archive acknowledgement succeeded,
+  and Gmail confirmed the `INBOX` label was removed. The synthetic message was
+  then moved to Trash.
+- Confirmed the Messages source returns a real recent SMS code without source
+  errors.
+- Installed, signed, launched, and process-verified the menu-bar app on the
+  MacBook. Its `client.json` is mode `600`, and an authenticated health request
+  from the MacBook to the Mac mini succeeded over tailnet HTTPS.
+- Staged the unpacked Chrome extension on the MacBook. Chrome 151 requires its
+  Developer Mode `Load unpacked` picker for final enrollment; remote UI control
+  was unavailable, so no protected Chrome preferences were modified.
 

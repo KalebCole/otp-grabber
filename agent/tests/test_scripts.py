@@ -26,6 +26,13 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("127.0.0.1", result.stdout)
         self.assertIn("dry-run", result.stdout)
 
+        template = (SCRIPTS / "com.otpgrabber.agent.plist.template").read_text()
+        self.assertIn("<key>PATH</key>", template)
+        self.assertIn("/opt/homebrew/bin", template)
+        self.assertIn("GOOGLE_WORKSPACE_CLI_KEYRING_BACKEND", template)
+        self.assertIn("StandardErrorPath", template)
+        self.assertIn("StandardOutPath", template)
+
     def test_uninstall_dry_run_is_idempotent(self):
         result = self.run_script("uninstall-agent.sh", "--dry-run")
         self.assertEqual(result.returncode, 0, result.stderr)

@@ -19,6 +19,11 @@ let package = Package(
             dependencies: ["OTPGrabberMenuBarCore"],
             path: "Sources/OTPGrabberMenuBar"
         ),
+        .executableTarget(
+            name: "OTPGrabberMenuBarChecks",
+            dependencies: ["OTPGrabberMenuBarCore"],
+            path: "Sources/OTPGrabberMenuBarChecks"
+        ),
         .testTarget(
             name: "OTPGrabberMenuBarTests",
             dependencies: ["OTPGrabberMenuBarCore"],

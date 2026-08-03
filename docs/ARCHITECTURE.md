@@ -6,7 +6,7 @@ OTP Grabber has one credential-bearing component: the source agent. It runs on t
 
 ```text
 Gmail via gws ─┐
-               ├─ source agent, 127.0.0.1:8787
+               ├─ source agent, 127.0.0.1:8877
 Messages DB ───┘             │
                              │ bearer-authenticated HTTPS
                        Tailscale Serve

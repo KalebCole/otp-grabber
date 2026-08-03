@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-DEFAULT_PORT = 8787
+DEFAULT_PORT = 8877
 MIN_TOKEN_LENGTH = 32
 
 

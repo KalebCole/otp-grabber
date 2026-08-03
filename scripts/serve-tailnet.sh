@@ -2,7 +2,7 @@
 set -euo pipefail
 
 DRY_RUN=0
-PORT=8787
+PORT=8877
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run) DRY_RUN=1 ;;

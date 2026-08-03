@@ -16,6 +16,7 @@ test-js:
 
 test-swift:
 	$(SWIFT) test --package-path menubar
+	$(SWIFT) run --package-path menubar OTPGrabberMenuBarChecks
 
 check:
 	bash scripts/check-repository.sh

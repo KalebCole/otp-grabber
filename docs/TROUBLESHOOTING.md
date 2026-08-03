@@ -12,7 +12,9 @@
    ```
 3. Test the loopback endpoint with the token from `~/Library/Application Support/OTP Grabber/agent.json`:
    ```bash
-   curl -H "Authorization: Bearer $OTP_TOKEN" http://127.0.0.1:8787/v1/health
+   TOKEN="$(python3 -c 'import json,os; print(json.load(open(os.path.expanduser("~/Library/Application Support/OTP Grabber/agent.json")))["token"])')"
+   curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8877/v1/health
+   unset TOKEN
    ```
 
 Do not paste the token into an issue or shared shell history.
@@ -32,14 +34,14 @@ Grant Full Disk Access to the Python executable used by the LaunchAgent, then re
 
 ```bash
 tailscale serve status
-scripts/serve-tailnet.sh --port 8787
+scripts/serve-tailnet.sh --port 8877
 ```
 
 Confirm both Macs are online in the same tailnet. OTP Grabber does not support Tailscale Funnel or another public proxy.
 
 ## Chrome rejects the private origin
 
-- Use the origin only, for example `https://source-device.example-tailnet.ts.net:8787`.
+- Use the origin only, for example `https://source-device.example-tailnet.ts.net:8877`.
 - Do not include `/v1/latest`, credentials, a query, or a fragment.
 - When Chrome prompts, allow the extension to reach that exact private origin.
 - If the permission was removed, save settings again to request it.
@@ -58,7 +60,7 @@ Create `~/Library/Application Support/OTP Grabber/client.json` with mode `600`:
 
 ```json
 {
-  "server_url": "https://source-device.example-tailnet.ts.net:8787",
+  "server_url": "https://source-device.example-tailnet.ts.net:8877",
   "token": "paste-the-source-agent-token"
 }
 ```
