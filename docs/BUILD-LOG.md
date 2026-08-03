@@ -210,3 +210,57 @@ Commands were run from the worktree root.
 - Command: `make test-python`
 - Expected: the complete Python suite remains green.
 - Observed: exit 0; 30 tests ran and passed (`OK`).
+
+## Task 6: Native macOS menu-bar app
+
+Date: 2026-08-02
+
+Commands were run from the worktree root. The artifact is generated under the
+ignored `dist/` directory; no client configuration, source-agent data, or user
+LaunchAgent was read or modified during verification.
+
+### XCTest-first red
+
+- Added focused XCTest cases before the production model/API/controller files:
+  configuration parsing, freshest response selection, partial source errors,
+  agent `latest` response shape, archive request construction, copy-before-
+  archive ordering, and offline behavior.
+- Command: `swift test --package-path menubar`
+- Observed: exit 1 before implementation. The initial package had no core
+  source target; after package scaffolding, the active Command Line Tools
+  installation reported `no such module 'XCTest'`. This is the same documented
+  CLT limitation from Task 1, so the XCTest source is guarded with
+  `canImport(XCTest)` for CLT-only builds. The tests will run unchanged when
+  XCTest is available (for example, in a full Xcode/CI environment).
+
+### Green and packaging
+
+- Command: `swift test --package-path menubar`
+- Result: exit 0; Swift Package Manager built the core, native app, and test
+  target successfully under Command Line Tools. XCTest discovery is unavailable
+  on this host because the CLT toolchain lacks the XCTest module.
+- Command: `scripts/build-menubar.sh`
+- Result: exit 0; created an arm64 release `OTP Grabber.app`, generated an
+  `Info.plist` with `LSUIElement=true`, ad-hoc signed and strictly verified the
+  bundle, linted the plist, and created the arm64 zip release artifact.
+- Command: `bash -n scripts/build-menubar.sh scripts/install-menubar.sh` and
+  `shellcheck scripts/build-menubar.sh scripts/install-menubar.sh`
+- Result: exit 0.
+- Command: `PYTHON=/opt/homebrew/bin/python3 make test`
+- Result: exit 0; 30 Python tests passed, one Node test passed, and the Swift
+  package build completed. The explicit Python selection avoids the system
+  Command Line Tools Python 3.9, which cannot import the repository's
+  `@dataclass(slots=True)` models.
+
+### Artifact and process smoke
+
+- Command: `plutil -extract LSUIElement raw`, `codesign --verify --deep
+  --strict`, and `unzip -l` against the built artifact.
+- Result: `true`; code signature valid and satisfying its designated
+  requirement; the zip contains the signed app executable and Info.plist.
+- Command: launch the packaged executable with a freshly created temporary
+  `HOME`, check that its PID remains alive, then terminate it.
+- Result: the process remained running through the two-second check and was
+  explicitly stopped. It could only show the setup state because the temporary
+  home contained no `client.json`; no live configuration or source data was
+  touched.
