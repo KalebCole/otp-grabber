@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OTP Grabber</title>
+  <link rel="stylesheet" href="src/styles.css">
+</head>
+<body class="popup-page">
+  <main class="card" aria-labelledby="title">
+    <header class="card-header">
+      <div><p class="eyebrow">PRIVATE HANDOFF</p><h1 id="title">OTP Grabber</h1></div>
+    </header>
+    <section id="state" class="state" aria-live="polite" aria-busy="true">
+      <div class="spinner" aria-hidden="true"></div><p>Looking for your freshest code…</p>
+    </section>
+    <section id="history-region" class="history-region" hidden>
+      <button id="history-toggle" class="disclosure" type="button" aria-expanded="false" aria-controls="history-list">Recent codes <span aria-hidden="true">⌄</span></button>
+      <ul id="history-list" class="history-list" hidden></ul>
+    </section>
+    <footer class="card-footer"><a href="options.html" target="_blank">Connection settings</a></footer>
+  </main>
+  <script type="module" src="src/popup.js"></script>
+</body>
+</html>

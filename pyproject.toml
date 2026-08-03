@@ -1,0 +1,11 @@
+[project]
+name = "otp-grabber"
+version = "0.0.0"
+description = "Local-first verification code utility for macOS"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = []
+
+[tool.otp-grabber]
+test-command = "python3 -m unittest discover -s agent/tests -v"

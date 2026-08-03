@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="OTP Grabber copies the freshest Gmail or Messages verification code from your Apple source agent to your MacBook, without a public relay.">
+  <meta name="theme-color" content="#f6f4ef">
+  <meta property="og:title" content="OTP Grabber">
+  <meta property="og:description" content="The verification code is already copied.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kalebcole.github.io/otp-grabber/">
+  <meta property="og:image" content="https://kalebcole.github.io/otp-grabber/social-card.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>OTP Grabber — The code is already copied</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <!--
+  THESIS: The code moves to the clipboard while the user's attention stays on the verification prompt; refuse the usual feature-grid landing page.
+  OWN-WORLD: Warm paper canvas, blue-black type, sage action, and one Calm Card moving across a measured connection line.
+  STORY: Recognize the repeated hunt, watch the private handoff, understand the boundary, then install or hand setup to an agent.
+  FIRST VIEWPORT: Plainspoken promise at left, live handoff demonstration at right, with the release action directly beneath the promise.
+  FORM: A single transfer path, chosen because the product is a handoff rather than a dashboard. Seed key: calm-transfer-path.
+  FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+  -->
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <a class="wordmark" href="./" aria-label="OTP Grabber home">
+      <span class="wordmark-mark" aria-hidden="true">••••••</span>
+      <span>OTP Grabber</span>
+    </a>
+    <nav aria-label="Primary navigation">
+      <a href="#setup">Set up</a>
+      <a href="https://github.com/KalebCole/otp-grabber">GitHub</a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow">For macOS + your Apple source agent</p>
+        <h1 id="hero-title">The code is already <span>copied.</span></h1>
+        <p class="hero-deck">Stay on the sign-in screen. OTP Grabber finds the freshest code in Gmail or Messages, copies it, and keeps the connection inside your tailnet.</p>
+        <div class="hero-actions" aria-label="Install options">
+          <a class="button button-primary" href="https://github.com/KalebCole/otp-grabber/releases/latest">Install latest release</a>
+          <button class="button button-secondary" type="button" data-copy-prompt aria-describedby="copy-status">Copy agent setup prompt</button>
+        </div>
+        <p id="copy-status" class="copy-status" role="status" aria-live="polite">No account or cloud relay required.</p>
+      </div>
+
+      <div class="handoff" aria-label="Illustration of a verification code moving from an Apple source agent to the MacBook clipboard">
+        <div class="source-device">
+          <div class="device-label"><span class="status-dot" aria-hidden="true"></span> Apple source agent</div>
+          <div class="message-line">
+            <span class="message-app">Mail</span>
+            <span class="message-copy">Your verification code is</span>
+            <strong>482 731</strong>
+          </div>
+          <div class="message-line muted-line">
+            <span class="message-app">Messages</span>
+            <span class="message-copy">No newer code</span>
+            <strong>—</strong>
+          </div>
+        </div>
+
+        <div class="transfer" aria-hidden="true">
+          <span class="transfer-label">TAILNET ONLY</span>
+          <span class="transfer-line"><i></i></span>
+        </div>
+
+        <div class="calm-card">
+          <div class="card-topline">
+            <span class="source-pill">Email</span>
+            <span>just now</span>
+          </div>
+          <p class="service-name">GitHub</p>
+          <p class="demo-code" aria-label="Code 4 8 2 7 3 1">482 731</p>
+          <div class="copied-line">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m4.5 10.2 3.2 3.2 7.8-7.8"/></svg>
+            Copied to clipboard
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="friction" aria-labelledby="friction-title">
+      <div class="section-heading">
+        <p class="eyebrow">One interruption removed</p>
+        <h2 id="friction-title">The old route takes five context switches.</h2>
+      </div>
+      <ol class="old-route" aria-label="Manual verification code workflow">
+        <li>Leave the prompt</li>
+        <li>Open Mail or Messages</li>
+        <li>Find the right thread</li>
+        <li>Copy the code</li>
+        <li>Return and paste</li>
+      </ol>
+      <div class="new-route">
+        <p><strong>With OTP Grabber</strong></p>
+        <p>Open one calm surface. Paste.</p>
+      </div>
+    </section>
+
+    <section class="architecture" aria-labelledby="architecture-title">
+      <div class="section-heading architecture-copy">
+        <p class="eyebrow">Private by construction</p>
+        <h2 id="architecture-title">Your messages stay on Apple hardware.</h2>
+        <p>The source agent reads Gmail and the local Messages database. It listens on loopback. Tailscale Serve gives your MacBook a private HTTPS route without opening the service to the public internet.</p>
+      </div>
+      <div class="architecture-path" role="img" aria-label="Mac mini or Apple source device connects through Tailscale Serve to a Chrome extension and menu-bar app on a MacBook">
+        <div class="architecture-node source-node">
+          <span class="node-index">01</span>
+          <strong>Apple source</strong>
+          <span>Gmail + Messages</span>
+        </div>
+        <span class="path-rule" aria-hidden="true"></span>
+        <div class="architecture-node network-node">
+          <span class="node-index">02</span>
+          <strong>Tailscale Serve</strong>
+          <span>Private HTTPS</span>
+        </div>
+        <span class="path-rule" aria-hidden="true"></span>
+        <div class="architecture-node client-node">
+          <span class="node-index">03</span>
+          <strong>Your MacBook</strong>
+          <span>Chrome + menu bar</span>
+        </div>
+      </div>
+      <aside class="boundary-note" aria-label="Permission disclosure">
+        <strong>What it can read</strong>
+        <span>Recent verification messages only</span>
+        <strong>What leaves the source device</strong>
+        <span>Code, sender label, age, and source ID</span>
+        <strong>What it never needs</strong>
+        <span>Public hosting, analytics, or a vendor account</span>
+      </aside>
+    </section>
+
+    <section id="setup" class="setup" aria-labelledby="setup-title">
+      <div class="section-heading">
+        <p class="eyebrow">Two Macs or one</p>
+        <h2 id="setup-title">Give the repo to the agent that runs your Apple device.</h2>
+        <p>The setup prompt covers the source agent, private route, Chrome extension, and menu-bar app. It asks the agent to verify every step before it stops.</p>
+      </div>
+      <div class="prompt-panel">
+        <div class="prompt-toolbar">
+          <span>AI AGENT SETUP PROMPT</span>
+          <button type="button" data-copy-prompt>Copy prompt</button>
+        </div>
+        <pre id="agent-prompt"><code>Set up OTP Grabber from https://github.com/KalebCole/otp-grabber on my Apple devices. Read the README and SECURITY.md first. Install the source agent on the Mac that has Gmail and Messages access. Keep it bound to loopback, generate a new local token, and expose it only with Tailscale Serve, never Funnel. Install the Chrome extension and menu-bar app on my MacBook, store the client configuration locally, then verify health, one test-code fetch, clipboard copy, email archive ordering, startup registration, and that no public listener exists. Do not print or commit tokens, hostnames, account data, or user paths. Stop and explain any macOS permission I must approve myself.</code></pre>
+      </div>
+      <div class="setup-actions">
+        <a class="button button-primary" href="https://github.com/KalebCole/otp-grabber/releases/latest">Download for macOS</a>
+        <a class="text-link" href="https://github.com/KalebCole/otp-grabber#setup">Read manual setup <span aria-hidden="true">↗</span></a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>OTP Grabber</span>
+    <span>Open source. No trackers.</span>
+    <a href="https://github.com/KalebCole/otp-grabber/blob/main/SECURITY.md">Security</a>
+  </footer>
+</body>
+</html>
