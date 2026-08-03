@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">OTP Grabber</title>
+  <desc id="desc">A calm verification code card showing code 482731 copied to clipboard.</desc>
+  <rect width="1200" height="630" fill="#f6f4ef"/>
+  <path d="M80 80H1120M80 550H1120" stroke="#dfdcd3"/>
+  <g font-family="Avenir Next, -apple-system, sans-serif" fill="#17212b">
+    <text x="82" y="136" font-size="25" font-weight="600">OTP Grabber</text>
+    <text x="82" y="282" font-size="72" font-weight="600" letter-spacing="-3">The code is already</text>
+    <text x="82" y="368" font-size="72" font-weight="600" letter-spacing="-3" fill="#547565">copied.</text>
+    <text x="84" y="432" font-size="24" fill="#68717a">Gmail + Messages → your Mac clipboard</text>
+  </g>
+  <g transform="translate(786 126)">
+    <rect width="330" height="336" rx="20" fill="#fffdf8" stroke="#cbd8d1"/>
+    <rect x="26" y="26" width="68" height="30" rx="15" fill="#e5f0e8"/>
+    <text x="60" y="46" text-anchor="middle" font-family="Avenir Next, sans-serif" font-size="14" font-weight="600" fill="#3f5d50">Email</text>
+    <text x="304" y="46" text-anchor="end" font-family="Avenir Next, sans-serif" font-size="14" fill="#68717a">just now</text>
+    <text x="26" y="105" font-family="Avenir Next, sans-serif" font-size="15" fill="#68717a">GitHub</text>
+    <text x="26" y="190" font-family="SFMono-Regular, Menlo, monospace" font-size="52" font-weight="600" letter-spacing="5" fill="#17212b">482 731</text>
+    <path d="M26 230H304" stroke="#dfdcd3"/>
+    <path d="m30 278 8 8 19-19" fill="none" stroke="#547565" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="70" y="286" font-family="Avenir Next, sans-serif" font-size="16" font-weight="600" fill="#3f5d50">Copied to clipboard</text>
+  </g>
+</svg>

@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "OTP Grabber — Calm Card",
+  "version": "0.1.0",
+  "description": "Fetch the freshest verification code from your private OTP Grabber agent.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1Fk/Uo1UBujOmbQjPupLI/mrqFo5B0kq1Kz4j5/lJdc0vJ7cXNBZbH5L/MVlgXaQFkdFzF+C8oOMeT5fhicbRiytnPvAMJUttCgiT6jAgtDcJyc7wfzvgF18r94tMlrbUPQgH08X4La3E7pHCFzlL9HNm/1+ClwuAIXLDiKxUS3Grn9XcPtSBN2mJv+aAVgFjlC4sCHZoJi8XNHXL/kwMVYLgBLiC1/UZknI63PKAwkp7gWL0rTNeiRTDCzNalLMRJTBxh2zKK7XMzGH4JcsPRNG402L3tdR87k5H/5qAN7ibCv2CJqdiZQEzBAn8OmsxjfiLNSXtxbHNjJN6P9PuwIDAQAB",
+  "permissions": ["storage", "clipboardWrite"],
+  "host_permissions": [],
+  "optional_host_permissions": [
+    "https://*.ts.net/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "action": {
+    "default_title": "OTP Grabber",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; base-uri 'self'"
+  }
+}
