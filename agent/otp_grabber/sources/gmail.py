@@ -85,6 +85,21 @@ class GmailSource:
             json.dumps(parameters),
         )
 
+    def archive_message(self, message_id: str) -> None:
+        """Remove the Inbox label from one acknowledged Gmail message."""
+        parameters = {"userId": "me", "id": message_id}
+        body = {"removeLabelIds": ["INBOX"]}
+        self._gws(
+            "gmail",
+            "users",
+            "messages",
+            "modify",
+            "--params",
+            json.dumps(parameters),
+            "--json",
+            json.dumps(body),
+        )
+
     def fetch_recent(self, *, since_timestamp_ms: int) -> list[dict[str, Any]]:
         """Return extracted Gmail records newer than the supplied epoch time."""
         parameters = {

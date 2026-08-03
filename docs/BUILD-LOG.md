@@ -105,3 +105,55 @@ Commands were run from the worktree root.
 - Command: `make test-python`
 - Expected: final pre-commit verification remains green.
 - Observed: exit 0; 15 tests ran and passed (`OK`).
+
+## Task 3: Freshest-code service and Gmail archive protocol
+
+Date: 2026-08-02
+
+Commands were run from the worktree root.
+
+### Freshest-code service red
+
+- Command: `python3 -m unittest agent.tests.test_service -v`
+- Expected: exit 1 because the focused tests import the not-yet-implemented
+  freshest-code service.
+- Observed: exit 1; test loading failed with `ModuleNotFoundError: No module
+  named 'agent.otp_grabber.service'`. This was the expected
+  missing-implementation failure.
+
+### Freshest-code service green
+
+- Command: `python3 -m unittest agent.tests.test_service -v`
+- Expected: concurrent polling, ordering, source-error, history, deduplication,
+  bounding, and expiration tests pass.
+- Observed: exit 0; 6 tests ran and passed (`OK`).
+
+### Gmail archive protocol red
+
+- Command: `python3 -m unittest
+  agent.tests.test_service.ArchiveAcknowledgementTests -v`
+- Expected: exit 1 because archive acknowledgment and Gmail modification have
+  not been implemented.
+- Observed: exit 1; 5 tests ran and errored with the expected missing-method
+  failures: `FreshestCodeService` had no `acknowledge_archive`, and
+  `GmailSource` had no `archive_message`.
+
+### Gmail archive protocol green
+
+- Command: `python3 -m unittest
+  agent.tests.test_service.ArchiveAcknowledgementTests -v`
+- Expected: eligibility, rejection, one-time modification, idempotency, and
+  retry tests pass without live Gmail access.
+- Observed: exit 0; 5 tests ran and passed (`OK`).
+- Command: `python3 -m unittest agent.tests.test_sources -v`
+- Expected: existing source adapter behavior remains green.
+- Observed: exit 0; 2 tests ran and passed (`OK`).
+- Command: `python3 -m unittest agent.tests.test_service -v`
+- Expected: the complete focused service and archive suite passes.
+- Observed: exit 0; 11 tests ran and passed (`OK`).
+
+### Full Python suite green
+
+- Command: `make test-python`
+- Expected: all Python tests pass after the service and archive changes.
+- Observed: exit 0; 26 tests ran and passed (`OK`).
