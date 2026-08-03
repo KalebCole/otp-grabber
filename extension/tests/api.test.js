@@ -42,6 +42,21 @@ test("API client uses authenticated exact endpoints and normalizes responses", a
   }]);
 });
 
+test("API client uses the agent health endpoint", async () => {
+  const calls = [];
+  const api = createApiClient({
+    serverUrl: "https://otp-mini.example.ts.net",
+    token: "test-token",
+    fetchFn: async (url, options) => {
+      calls.push({ url, options });
+      return response({ ok: true });
+    },
+  });
+
+  assert.deepEqual(await api.health(), { ok: true });
+  assert.equal(calls[0].url, "https://otp-mini.example.ts.net/v1/health");
+});
+
 test("API client sends archive acknowledgement only for explicit IDs", async () => {
   const calls = [];
   const api = createApiClient({

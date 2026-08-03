@@ -27,7 +27,7 @@ export function createApiClient({ serverUrl, token, fetchFn = fetch }) {
   const headers = { Authorization: `Bearer ${token.trim()}`, Accept: "application/json" };
   const get = (path, signal) => request(fetchFn, `${origin}${path}`, { method: "GET", headers, signal });
   return {
-    async health(signal) { return request(fetchFn, `${origin}/health`, { method: "GET", headers, signal }); },
+    async health(signal) { return request(fetchFn, `${origin}/v1/health`, { method: "GET", headers, signal }); },
     async latest(signal) { return normalizeLatestResponse(await get("/v1/latest", signal)); },
     async history(signal) { return normalizeHistoryResponse(await get("/v1/history", signal)); },
     async archive(id, signal) {
