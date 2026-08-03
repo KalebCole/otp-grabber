@@ -11,8 +11,8 @@ fail() {
 tracked_noise="$(git ls-files | grep -E '(^|/)(__pycache__|\.build|node_modules|artifacts)(/|$)|\.(pyc|pyo|db|sqlite|sqlite3|pem|key)$' || true)"
 [[ -z "$tracked_noise" ]] || fail "generated or sensitive-looking files are tracked:\n$tracked_noise"
 
-personal_values="$(git grep -nEI '/Users/kalebcole|tail6ac27c|kalebs-(mac|mini|book)|kalebcole2021@gmail\.com' -- . \
-  ':!.github/skills/impeccable/**' ':!scripts/check-repository.sh' ':!docs/BUILD-LOG.md' || true)"
+personal_values="$(git grep -nEI '/Users/[A-Za-z0-9._-]+|tail[0-9a-f]{6,}|[A-Za-z0-9._%+-]+@(gmail|outlook|icloud)\.com' -- . \
+  ':!.github/skills/impeccable/**' ':!scripts/check-repository.sh' || true)"
 [[ -z "$personal_values" ]] || fail "machine-specific values found:\n$personal_values"
 
 inline_web_code="$(git grep -nEI '<script[^>]*>[^<]|\son(click|load|error)=' -- 'docs/*.html' || true)"
