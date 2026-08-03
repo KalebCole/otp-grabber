@@ -8,11 +8,11 @@ struct OTPGrabberMenuBarTests {
     @Test("configuration accepts only private origin-only endpoints")
     func configurationValidation() throws {
         let valid = Data("""
-        {"server_url":"https://agent.tailnet.example","token":"  secret-token  "}
+        {"server_url":"https://agent.example.ts.net","token":"  secret-token  "}
         """.utf8)
         let config = try ClientConfiguration.parse(valid)
 
-        #expect(config.endpoint.absoluteString == "https://agent.tailnet.example")
+        #expect(config.endpoint.absoluteString == "https://agent.example.ts.net")
         #expect(config.token == "secret-token")
         #expect(!configurationIsValid("http://example.com"))
         #expect(!configurationIsValid("https://example.com"))
@@ -39,13 +39,13 @@ struct OTPGrabberMenuBarTests {
 
     @Test("archive request uses POST, bearer token, and JSON id")
     func archiveRequest() throws {
-        let endpoint = try #require(URL(string: "https://agent.tailnet.example"))
+        let endpoint = try #require(URL(string: "https://agent.example.ts.net"))
         let request = try APIClient.archiveRequest(
             messageID: "gmail-123",
             configuration: ClientConfiguration(endpoint: endpoint, token: "token")
         )
 
-        #expect(request.url?.absoluteString == "https://agent.tailnet.example/v1/archive")
+        #expect(request.url?.absoluteString == "https://agent.example.ts.net/v1/archive")
         #expect(request.httpMethod == "POST")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer token")
         #expect(String(data: try #require(request.httpBody), encoding: .utf8) == "{\"id\":\"gmail-123\"}")
