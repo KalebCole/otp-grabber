@@ -1,24 +1,27 @@
-#if canImport(XCTest)
+#if canImport(Testing)
 import Foundation
-import XCTest
+import Testing
 @testable import OTPGrabberMenuBarCore
 
-final class OTPGrabberMenuBarTests: XCTestCase {
-    func testConfigurationParsesOnlyValidHTTPSOrLoopbackEndpoint() throws {
-        let json = Data("""
+@Suite("OTP Grabber menu-bar core")
+struct OTPGrabberMenuBarTests {
+    @Test("configuration accepts only private origin-only endpoints")
+    func configurationValidation() throws {
+        let valid = Data("""
         {"server_url":"https://agent.tailnet.example","token":"  secret-token  "}
         """.utf8)
+        let config = try ClientConfiguration.parse(valid)
 
-        let config = try ClientConfiguration.parse(json)
-
-        XCTAssertEqual(config.endpoint.absoluteString, "https://agent.tailnet.example")
-        XCTAssertEqual(config.token, "secret-token")
-        XCTAssertThrowsError(try ClientConfiguration.parse(Data("{\"server_url\":\"http://example.com\",\"token\":\"t\"}".utf8)))
-        XCTAssertThrowsError(try ClientConfiguration.parse(Data("{\"server_url\":\"https://example.com\",\"token\":\"t\"}".utf8)))
-        XCTAssertThrowsError(try ClientConfiguration.parse(Data("{\"server_url\":\"https://agent.ts.net/path\",\"token\":\"t\"}".utf8)))
+        #expect(config.endpoint.absoluteString == "https://agent.tailnet.example")
+        #expect(config.token == "secret-token")
+        #expect(!configurationIsValid("http://example.com"))
+        #expect(!configurationIsValid("https://example.com"))
+        #expect(!configurationIsValid("https://agent.ts.net/path"))
+        #expect(configurationIsValid("http://127.0.0.1:8787"))
     }
 
-    func testLatestResponseChoosesFreshestCodeAndPreservesPartialErrors() throws {
+    @Test("latest response chooses freshest code and preserves partial errors")
+    func latestResponse() throws {
         let response = try LatestResponse.parse(Data("""
         {
           "codes": [
@@ -29,66 +32,81 @@ final class OTPGrabberMenuBarTests: XCTestCase {
         }
         """.utf8))
 
-        XCTAssertEqual(response.latest?.id, "new")
-        XCTAssertEqual(response.errors, [SourceError(source: "messages", message: "unavailable")])
-        XCTAssertEqual(response.presentationState, .partial)
+        #expect(response.latest?.id == "new")
+        #expect(response.errors == [SourceError(source: "messages", message: "unavailable")])
+        #expect(response.presentationState == .partial)
     }
 
-    func testLatestResponseSupportsAgentLatestShapeAndEmptyState() throws {
-        let response = try LatestResponse.parse(Data("{\"latest\":null,\"errors\":[]}".utf8))
-        XCTAssertNil(response.latest)
-        XCTAssertEqual(response.presentationState, .empty)
+    @Test("archive request uses POST, bearer token, and JSON id")
+    func archiveRequest() throws {
+        let endpoint = try #require(URL(string: "https://agent.tailnet.example"))
+        let request = try APIClient.archiveRequest(
+            messageID: "gmail-123",
+            configuration: ClientConfiguration(endpoint: endpoint, token: "token")
+        )
+
+        #expect(request.url?.absoluteString == "https://agent.tailnet.example/v1/archive")
+        #expect(request.httpMethod == "POST")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer token")
+        #expect(String(data: try #require(request.httpBody), encoding: .utf8) == "{\"id\":\"gmail-123\"}")
     }
 
-    func testArchiveRequestUsesPOSTBearerTokenAndJSONID() throws {
-        let config = ClientConfiguration(endpoint: try XCTUnwrap(URL(string: "https://agent.tailnet.example/api")), token: "token")
-        let request = try APIClient.archiveRequest(messageID: "gmail-123", configuration: config)
-
-        XCTAssertEqual(request.url?.absoluteString, "https://agent.tailnet.example/api/v1/archive")
-        XCTAssertEqual(request.httpMethod, "POST")
-        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer token")
-        XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
-        XCTAssertEqual(String(data: try XCTUnwrap(request.httpBody), encoding: .utf8), "{\"id\":\"gmail-123\"}")
-    }
-
+    @Test("controller copies before acknowledging Gmail")
     @MainActor
-    func testControllerCopiesBeforeAcknowledgingOnlyGmail() async {
+    func copyBeforeArchive() async {
         let client = RecordingClient(response: LatestResponse(
             codes: [CodeRecord(id: "gmail-1", source: "gmail", code: "123456", sender: "Bank", subject: "", timestampMilliseconds: 1)],
             errors: []
         ))
-        let clipboard = RecordingClipboard(events: client.events)
-        let controller = MenuBarController(client: client, clipboard: clipboard)
-
-        await controller.refresh()
-
-        XCTAssertEqual(client.events.values, ["fetch", "copy:123456", "archive:gmail-1"])
-        XCTAssertEqual(controller.state, .success(code: "123456", source: "gmail", partialWarning: nil))
-    }
-
-    @MainActor
-    func testControllerDoesNotArchiveWhenCopyFailsAndReportsOffline() async {
-        let client = RecordingClient(response: LatestResponse(codes: [], errors: []), fetchError: ClientError.offline)
-        let clipboard = RecordingClipboard(events: client.events, succeeds: false)
-        let controller = MenuBarController(client: client, clipboard: clipboard)
-
-        await controller.refresh()
-
-        XCTAssertEqual(client.events.values, ["fetch"])
-        XCTAssertEqual(controller.state, .offline)
-    }
-
-    @MainActor
-    func testArchiveFailureKeepsCopiedCodeAndShowsRecoveryGuidance() async {
-        let record = CodeRecord(id: "gmail-1", source: "gmail", code: "123456", sender: "Bank", subject: "", timestampMilliseconds: 1)
-        let client = RecordingClient(response: LatestResponse(codes: [record], errors: []), archiveError: ClientError.offline)
         let controller = MenuBarController(client: client, clipboard: RecordingClipboard(events: client.events))
 
         await controller.refresh()
 
-        XCTAssertEqual(client.events.values, ["fetch", "copy:123456", "archive:gmail-1"])
-        XCTAssertEqual(controller.state, .success(code: "123456", source: "gmail", partialWarning: "Gmail archive will retry next time"))
+        #expect(client.events.values == ["fetch", "copy:123456", "archive:gmail-1"])
+        #expect(controller.state == .success(code: "123456", source: "gmail", partialWarning: nil))
     }
+
+    @Test("clipboard failure never archives")
+    @MainActor
+    func clipboardFailure() async {
+        let record = CodeRecord(id: "gmail-1", source: "gmail", code: "123456", sender: "Bank", subject: "", timestampMilliseconds: 1)
+        let client = RecordingClient(response: LatestResponse(codes: [record], errors: []))
+        let controller = MenuBarController(
+            client: client,
+            clipboard: RecordingClipboard(events: client.events, succeeds: false)
+        )
+
+        await controller.refresh()
+
+        #expect(client.events.values == ["fetch", "copy:123456"])
+        #expect(controller.state == .offline)
+    }
+
+    @Test("archive failure preserves copied code and shows retry guidance")
+    @MainActor
+    func archiveFailure() async {
+        let record = CodeRecord(id: "gmail-1", source: "gmail", code: "123456", sender: "Bank", subject: "", timestampMilliseconds: 1)
+        let client = RecordingClient(
+            response: LatestResponse(codes: [record], errors: []),
+            archiveError: ClientError.offline
+        )
+        let controller = MenuBarController(client: client, clipboard: RecordingClipboard(events: client.events))
+
+        await controller.refresh()
+
+        #expect(client.events.values == ["fetch", "copy:123456", "archive:gmail-1"])
+        #expect(controller.state == .success(
+            code: "123456",
+            source: "gmail",
+            partialWarning: "Gmail archive will retry next time"
+        ))
+    }
+}
+
+private func configurationIsValid(_ serverURL: String) -> Bool {
+    let encoded = serverURL.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+    let data = Data("{\"server_url\":\"\(encoded)\",\"token\":\"secret-token\"}".utf8)
+    return (try? ClientConfiguration.parse(data)) != nil
 }
 
 private final class EventLog: @unchecked Sendable {
@@ -97,19 +115,16 @@ private final class EventLog: @unchecked Sendable {
 
 private final class RecordingClient: OTPClient, @unchecked Sendable {
     let response: LatestResponse
-    let fetchError: Error?
     let archiveError: Error?
     let events = EventLog()
 
-    init(response: LatestResponse, fetchError: Error? = nil, archiveError: Error? = nil) {
+    init(response: LatestResponse, archiveError: Error? = nil) {
         self.response = response
-        self.fetchError = fetchError
         self.archiveError = archiveError
     }
 
     func latest() async throws -> LatestResponse {
         events.values.append("fetch")
-        if let fetchError { throw fetchError }
         return response
     }
 

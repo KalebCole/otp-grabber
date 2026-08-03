@@ -16,6 +16,7 @@ esac
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$DIST"
+swift build --package-path "$PACKAGE" -c release --arch "$ARCH"
 BIN_PATH="$(swift build --package-path "$PACKAGE" -c release --arch "$ARCH" --show-bin-path)"
 install -m 755 "$BIN_PATH/OTPGrabberMenuBar" "$APP/Contents/MacOS/OTPGrabberMenuBar"
 cat > "$APP/Contents/Info.plist" <<PLIST

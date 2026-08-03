@@ -40,6 +40,8 @@ class ScriptTests(unittest.TestCase):
         result = self.run_script("serve-tailnet.sh", "--dry-run", "--port", "8787")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("tailscale serve", result.stdout)
+        self.assertIn("--bg", result.stdout)
+        self.assertIn("--yes", result.stdout)
         self.assertNotIn("funnel", result.stdout.lower())
 
 

@@ -19,7 +19,7 @@ if ! [[ "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 1 || PORT > 65535 )); then
   echo "port must be 1-65535" >&2
   exit 64
 fi
-COMMAND=(tailscale serve "--https=${PORT}" "http://127.0.0.1:${PORT}")
+COMMAND=(tailscale serve --bg --yes "--https=${PORT}" "http://127.0.0.1:${PORT}")
 if (( DRY_RUN )); then
   printf 'dry-run:'; printf ' %q' "${COMMAND[@]}"; printf '\n'
   exit 0

@@ -401,3 +401,37 @@ LaunchAgent was read or modified during verification.
   home contained no `client.json`; no live configuration or source data was
   touched.
 
+## Task 8: Documentation, CI, release, and final local verification
+
+Date: 2026-08-02
+
+### Integration defects fixed
+
+- Chrome cross-origin fetch initially had no host permission. Added narrow optional
+  `.ts.net` and loopback permissions, requested only the selected origin at setup,
+  and added manifest/UI regression coverage.
+- Removed the rejected manual refresh control from the Calm Card. Copy status now
+  changes to success only after the clipboard write succeeds.
+- Tailscale Serve helper initially ran in the foreground. Verified the installed
+  CLI contract and added `--bg --yes` with focused tests.
+- Menu-bar release script initially printed Swift's bin path without compiling a
+  release binary. The first package run failed; the script now performs the release
+  build before copying and signing the app.
+- Menu-bar configuration now rejects public HTTPS hosts, credentials, and paths.
+  Gmail archive failure preserves the copied code and presents retry guidance.
+
+### Full verification green
+
+- Command: `PYTHON=python3.11 make test`
+- Observed: 46 Python tests, 16 Chrome extension tests, and 5 landing-page tests
+  passed. The Swift target and guarded Swift Testing suite compiled under the
+  Command Line Tools runtime; executable Swift tests require full Xcode and are
+  scheduled for MacBook verification.
+- Command: `make check`
+- Observed: repository hygiene passed and Impeccable detector returned `[]`.
+- Command: `VERSION=0.1.0 make package`
+- Observed: extension zip, signed arm64 menu-bar zip, and source tarball created.
+  `codesign --verify --deep --strict` and `plutil -lint` passed.
+- Workflow YAML parsed successfully for verification, Pages, and release jobs.
+- `git diff --check` passed.
+
