@@ -432,6 +432,8 @@ Date: 2026-08-02
 - Observed: extension zip, signed arm64 menu-bar zip, and source tarball created.
   `codesign --verify --deep --strict` and `plutil -lint` passed.
 - Workflow YAML parsed successfully for verification, Pages, and release jobs.
+  Tag-derived packaging was exercised with `v0.1.1`, producing correctly named
+  artifacts under `dist/release/`; invalid versions were rejected.
 - `git diff --check` passed.
 
 ### Live private-network verification

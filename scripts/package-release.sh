@@ -3,7 +3,13 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST="${DIST_DIR:-$ROOT/dist/release}"
-VERSION="${VERSION:-0.1.0}"
+[[ $# -le 1 ]] || { echo "usage: $0 [version-or-tag]" >&2; exit 64; }
+VERSION="${VERSION:-${1:-0.1.0}}"
+VERSION="${VERSION#v}"
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][A-Za-z0-9.]+)?$ ]] || {
+  echo "invalid release version: $VERSION" >&2
+  exit 64
+}
 
 rm -rf "$DIST"
 mkdir -p "$DIST"
