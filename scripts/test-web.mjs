@@ -5,6 +5,7 @@ import test from 'node:test';
 const html = readFileSync(new URL('../docs/index.html', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../docs/styles.css', import.meta.url), 'utf8');
 const js = readFileSync(new URL('../docs/app.js', import.meta.url), 'utf8');
+const socialCard = readFileSync(new URL('../docs/social-card.png', import.meta.url));
 
 function occurrences(source, pattern) {
   return [...source.matchAll(pattern)].length;
@@ -27,6 +28,12 @@ test('landing page exposes exactly the approved actions', () => {
   assert.equal(occurrences(html, /data-copy-prompt/g), 2);
   assert.match(html, /Tailscale Serve/);
   assert.match(html, /never Funnel/i);
+});
+
+test('social metadata uses an absolute PNG card', () => {
+  assert.match(html, /property="og:url" content="https:\/\/kalebcole\.github\.io\/otp-grabber\/"/);
+  assert.match(html, /property="og:image" content="https:\/\/kalebcole\.github\.io\/otp-grabber\/social-card\.png"/);
+  assert.equal(socialCard.subarray(1, 4).toString(), 'PNG');
 });
 
 test('landing page has no inline or remote executable code', () => {
