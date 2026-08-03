@@ -27,7 +27,9 @@ public struct ClientConfiguration: Equatable, Sendable {
         }
         let scheme = endpoint.scheme?.lowercased()
         let loopback = endpoint.host == "127.0.0.1" || endpoint.host == "localhost" || endpoint.host == "::1"
-        guard scheme == "https" || (scheme == "http" && loopback) else {
+        let tailnet = endpoint.host?.lowercased().hasSuffix(".ts.net") == true
+        let originOnly = (endpoint.path.isEmpty || endpoint.path == "/") && endpoint.query == nil && endpoint.fragment == nil && endpoint.user == nil && endpoint.password == nil
+        guard originOnly, (loopback && (scheme == "http" || scheme == "https")) || (tailnet && scheme == "https") else {
             throw ClientError.invalidConfiguration
         }
         return ClientConfiguration(endpoint: endpoint, token: token)
@@ -205,7 +207,11 @@ public final class MenuBarController {
             let warning = response.errors.first.map { "\($0.source) unavailable" }
             setState(.success(code: record.code, source: record.source, partialWarning: warning))
             if record.source.lowercased() == "gmail" {
-                do { try await client.archive(messageID: record.id) } catch { /* Clipboard success remains visible. */ }
+                do {
+                    try await client.archive(messageID: record.id)
+                } catch {
+                    setState(.success(code: record.code, source: record.source, partialWarning: "Gmail archive will retry next time"))
+                }
             }
         } catch {
             setState(.offline)
