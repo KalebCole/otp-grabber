@@ -210,3 +210,59 @@ Commands were run from the worktree root.
 - Command: `make test-python`
 - Expected: the complete Python suite remains green.
 - Observed: exit 0; 30 tests ran and passed (`OK`).
+
+## Task 4: Authenticated localhost API and installer
+
+Date: 2026-08-02
+
+Commands were run from the worktree root using an available Python 3.14
+interpreter because the system `python3` resolves to Python 3.9 while this
+project requires Python 3.11 or newer.
+
+### API and config red
+
+- Command: `/opt/homebrew/bin/python3 -m unittest agent.tests.test_api -v`
+- Expected: exit 1 because `security`, `server`, and `config` modules had not
+  been created.
+- Observed: exit 1; import failed with `ModuleNotFoundError: No module named
+  'agent.otp_grabber.security'`.
+
+### API and config green
+
+- Command: `/opt/homebrew/bin/python3 -m unittest agent.tests.test_api -v`
+- Expected: loopback binding, bearer authentication, constant-time token
+  matching, endpoint contract, malformed JSON, 64 KiB cap, route/method
+  allowlist, rate cap, restricted CORS, safe errors, and mode-600 config pass.
+- Observed: exit 0; 12 tests ran and passed (`OK`).
+
+### Installer red
+
+- Command: `/opt/homebrew/bin/python3 -m unittest agent.tests.test_scripts -v`
+- Expected: exit 1 before the installer, uninstaller, Tailscale helper, and
+  plist template existed.
+- Observed: exit 1; all four tests reported missing script paths (exit 127).
+
+### Installer green
+
+- Command: `/opt/homebrew/bin/python3 -m unittest agent.tests.test_scripts -v`
+- Expected: dry-run install/uninstall work without mutation; the private
+  Tailscale command is emitted; and public-exposure input is rejected.
+- Observed: exit 0; 4 tests ran and passed (`OK`).
+- Command: `bash -n scripts/install-agent.sh scripts/uninstall-agent.sh
+  scripts/serve-tailnet.sh && plutil -lint
+  scripts/com.otpgrabber.agent.plist.template && shellcheck
+  scripts/install-agent.sh scripts/uninstall-agent.sh scripts/serve-tailnet.sh`
+- Observed: exit 0; plist template reported `OK` and ShellCheck reported no
+  findings.
+- Command: `bash scripts/install-agent.sh --dry-run && bash
+  scripts/uninstall-agent.sh --dry-run && bash scripts/serve-tailnet.sh
+  --dry-run --port 8787 && ! bash scripts/serve-tailnet.sh --funnel --dry-run`
+- Observed: exit 0; dry-run output described only a loopback target, and the
+  public-exposure flag was rejected without running Tailscale or launchctl.
+
+### Full Python suite green
+
+- Command: `/opt/homebrew/bin/python3 -m unittest discover -s agent/tests -v`
+- Observed: exit 0; 46 tests ran and passed (`OK`).
+- Command: `git diff --check`
+- Observed: exit 0; no whitespace errors.
