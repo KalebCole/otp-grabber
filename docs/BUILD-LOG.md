@@ -56,3 +56,52 @@ from the repository root. Worktree-specific path text is represented as
 - Result: exit 0; Python reported one passing test, Node reported one passing
   test and zero failures, and Swift Package Manager completed its build
   successfully (`Build complete! (0.06s)`).
+
+## Task 2: Shared code extraction and source adapters
+
+Date: 2026-08-02
+
+Commands were run from the worktree root.
+
+### Extraction red
+
+- Command: `python3 -m unittest agent.tests.test_extractor -v`
+- Expected: exit 1 because the focused extraction tests import behavior that
+  has not been implemented yet.
+- Observed: exit 1; test discovery reached `test_extractor.py` and failed with
+  `ModuleNotFoundError: No module named 'agent.otp_grabber.extractor'`. This
+  was the expected missing-implementation failure, not a syntax failure.
+
+### Extraction green
+
+- Command: `python3 -m unittest agent.tests.test_extractor -v`
+- Expected: all focused extraction and typedstream tests pass.
+- Observed: exit 0; 12 tests ran and passed (`OK`).
+
+### Source adapters red
+
+- Command: `python3 -m unittest agent.tests.test_sources -v`
+- Expected: exit 1 because the Gmail and Messages adapters do not exist yet.
+- Observed: exit 1; test discovery reached `test_sources.py` and failed with
+  `ModuleNotFoundError: No module named 'agent.otp_grabber.sources.gmail'`.
+  This was the expected missing-implementation failure, not a syntax failure.
+
+### Source adapters green
+
+- Command: `python3 -m unittest agent.tests.test_sources -v`
+- Expected: both fixture-backed adapter tests pass without accessing live
+  Gmail or Messages data.
+- Observed: exit 0; 2 tests ran and passed (`OK`).
+
+### Full Python suite green
+
+- Command: `make test-python`
+- Expected: the complete Python suite passes before refactoring.
+- Observed: exit 0; 15 tests ran and passed (`OK`).
+- Command: `make test-python`
+- Expected: the complete Python suite remains green after the package and
+  timestamp-arithmetic refactor.
+- Observed: exit 0; 15 tests ran and passed (`OK`).
+- Command: `make test-python`
+- Expected: final pre-commit verification remains green.
+- Observed: exit 0; 15 tests ran and passed (`OK`).
