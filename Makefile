@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := test
 
-PYTHON ?= python3
+PYTHON ?= python3.11
 NPM ?= npm
 SWIFT ?= swift
 
