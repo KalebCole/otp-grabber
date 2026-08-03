@@ -14,6 +14,8 @@ final class OTPGrabberMenuBarTests: XCTestCase {
         XCTAssertEqual(config.endpoint.absoluteString, "https://agent.tailnet.example")
         XCTAssertEqual(config.token, "secret-token")
         XCTAssertThrowsError(try ClientConfiguration.parse(Data("{\"server_url\":\"http://example.com\",\"token\":\"t\"}".utf8)))
+        XCTAssertThrowsError(try ClientConfiguration.parse(Data("{\"server_url\":\"https://example.com\",\"token\":\"t\"}".utf8)))
+        XCTAssertThrowsError(try ClientConfiguration.parse(Data("{\"server_url\":\"https://agent.ts.net/path\",\"token\":\"t\"}".utf8)))
     }
 
     func testLatestResponseChoosesFreshestCodeAndPreservesPartialErrors() throws {
@@ -75,6 +77,18 @@ final class OTPGrabberMenuBarTests: XCTestCase {
         XCTAssertEqual(client.events.values, ["fetch"])
         XCTAssertEqual(controller.state, .offline)
     }
+
+    @MainActor
+    func testArchiveFailureKeepsCopiedCodeAndShowsRecoveryGuidance() async {
+        let record = CodeRecord(id: "gmail-1", source: "gmail", code: "123456", sender: "Bank", subject: "", timestampMilliseconds: 1)
+        let client = RecordingClient(response: LatestResponse(codes: [record], errors: []), archiveError: ClientError.offline)
+        let controller = MenuBarController(client: client, clipboard: RecordingClipboard(events: client.events))
+
+        await controller.refresh()
+
+        XCTAssertEqual(client.events.values, ["fetch", "copy:123456", "archive:gmail-1"])
+        XCTAssertEqual(controller.state, .success(code: "123456", source: "gmail", partialWarning: "Gmail archive will retry next time"))
+    }
 }
 
 private final class EventLog: @unchecked Sendable {
@@ -84,11 +98,13 @@ private final class EventLog: @unchecked Sendable {
 private final class RecordingClient: OTPClient, @unchecked Sendable {
     let response: LatestResponse
     let fetchError: Error?
+    let archiveError: Error?
     let events = EventLog()
 
-    init(response: LatestResponse, fetchError: Error? = nil) {
+    init(response: LatestResponse, fetchError: Error? = nil, archiveError: Error? = nil) {
         self.response = response
         self.fetchError = fetchError
+        self.archiveError = archiveError
     }
 
     func latest() async throws -> LatestResponse {
@@ -99,6 +115,7 @@ private final class RecordingClient: OTPClient, @unchecked Sendable {
 
     func archive(messageID: String) async throws {
         events.values.append("archive:\(messageID)")
+        if let archiveError { throw archiveError }
     }
 }
 
