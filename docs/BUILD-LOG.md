@@ -210,3 +210,57 @@ Commands were run from the worktree root.
 - Command: `make test-python`
 - Expected: the complete Python suite remains green.
 - Observed: exit 0; 30 tests ran and passed (`OK`).
+
+## Task 5: Calm Card Chrome extension
+
+Date: 2026-08-02
+
+Commands were run from the worktree root. The extension contains no personal
+server address, token, or private key. Its manifest contains only a public key
+so Chrome derives a stable unpacked-extension ID.
+
+### Pure model/API red
+
+- Command: `npm run test:extension`
+- Expected: exit 1 before the new pure modules exist.
+- Observed: exit 1; Node reported `ERR_MODULE_NOT_FOUND` for
+  `extension/src/api.js` and `extension/src/model.js`. The existing harness
+  test still passed, confirming the failure was missing implementation.
+
+### Pure model/API green
+
+- Command: `npm run test:extension`
+- Expected: normalization, freshness, state derivation, URL validation,
+  authenticated endpoint construction, and copy-before-archive behavior pass.
+- Observed: exit 0; 13 tests passed, zero failed.
+
+### Manifest/CSP red
+
+- Command: `node --test extension/tests/manifest.test.js`
+- Expected: exit 1 before the MV3 manifest and extension documents exist.
+- Observed: exit 1; both tests failed with `ENOENT` for
+  `extension/manifest.json`.
+
+### Manifest/CSP green
+
+- Command: `node --test extension/tests/manifest.test.js`
+- Expected: the manifest is MV3 with a public key and minimum permissions, and
+  both documents use external modules under a restrictive CSP.
+- Observed: exit 0; 2 tests passed, zero failed.
+- Command: `npm run test:extension`
+- Observed: exit 0; 15 tests passed, zero failed.
+- Command: `node --check extension/src/api.js && node --check
+  extension/src/model.js && node --check extension/src/popup.js && node --check
+  extension/src/options.js`, plus a Python manifest/CSP/PNG assertion script
+  and `git diff --check`.
+- Observed: exit 0; syntax checks completed and the assertion script printed
+  `manifest/CSP/icon checks: OK`.
+
+### Full suite
+
+- Command: `PYTHON=/opt/homebrew/bin/python3 make test`
+- Observed: exit 0; 30 Python tests passed, 15 Node tests passed, and the
+  Swift package built successfully. The shell default `python3` resolves to
+  Command Line Tools Python 3.9 on this host and cannot import the repository's
+  Python-3.11+ `dataclass(slots=True)` code; the explicit Homebrew Python 3.14
+  override was required for the complete suite.
