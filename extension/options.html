@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OTP Grabber settings</title>
+  <link rel="stylesheet" href="src/styles.css">
+</head>
+<body class="options-page">
+  <main class="settings-card" aria-labelledby="settings-title">
+    <p class="eyebrow">PRIVATE CONNECTION</p>
+    <h1 id="settings-title">Set up OTP Grabber</h1>
+    <p class="intro">Connect only to your local agent or private Tailscale address. Your token stays in this browser profile.</p>
+    <form id="settings-form" novalidate>
+      <label for="server-url">Agent URL</label>
+      <input id="server-url" name="serverUrl" type="url" autocomplete="url" placeholder="https://your-mac.tailnet.ts.net" required>
+      <p class="hint">HTTPS tailnet URL or loopback address only. Do not include a path.</p>
+      <label for="token">Bearer token</label>
+      <input id="token" name="token" type="password" autocomplete="off" placeholder="Paste the token from your agent" required>
+      <p id="form-status" class="form-status" role="status" aria-live="polite"></p>
+      <div class="actions"><button class="primary-button" type="submit">Test and save</button></div>
+    </form>
+    <details><summary>Why these limits?</summary><p>The extension makes direct authenticated requests to your agent. It accepts only a loopback address or private Tailscale HTTPS origin, and requests no browsing permissions.</p></details>
+  </main>
+  <script type="module" src="src/options.js"></script>
+</body>
+</html>
