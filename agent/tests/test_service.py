@@ -67,6 +67,19 @@ class ArchiveCapableSource(StubSource):
             raise outcome
 
 
+class BlockingArchiveSource(ArchiveCapableSource):
+    def __init__(self, responses, archive_started, archive_release):
+        super().__init__(responses)
+        self._archive_started = archive_started
+        self._archive_release = archive_release
+
+    def archive_message(self, message_id):
+        self.archive_calls.append(message_id)
+        self._archive_started.set()
+        if not self._archive_release.wait(timeout=5):
+            raise RuntimeError("archive release was not signaled")
+
+
 class RecordingArchiveRunner:
     def __init__(self):
         self.calls = []
@@ -280,6 +293,71 @@ class ArchiveAcknowledgementTests(unittest.TestCase):
             {"id": "g-1", "archived": True, "already_archived": True},
         )
         self.assertEqual(gmail.archive_calls, ["g-1"])
+
+    def test_archive_eligibility_is_pruned_with_bounded_history(self):
+        gmail = ArchiveCapableSource(
+            [
+                [record("g-1", "gmail", "123456", NOW_MS - 20_000)],
+                [record("g-2", "gmail", "654321", NOW_MS - 10_000)],
+            ]
+        )
+        service = FreshestCodeService(
+            gmail_source=gmail,
+            messages_source=StubSource([[], []]),
+            clock_ms=lambda: NOW_MS,
+            history_limit=1,
+        )
+        service.poll_latest()
+        service.acknowledge_archive("g-1")
+
+        service.poll_latest()
+
+        with self.assertRaisesRegex(ValueError, "not eligible"):
+            service.acknowledge_archive("g-1")
+        self.assertEqual(gmail.archive_calls, ["g-1"])
+
+    def test_history_access_proceeds_while_archive_io_is_blocked(self):
+        archive_started = threading.Event()
+        archive_release = threading.Event()
+        history_returned = threading.Event()
+        gmail = BlockingArchiveSource(
+            [[record("g-1", "gmail", "123456", NOW_MS - 10_000)]],
+            archive_started,
+            archive_release,
+        )
+        service = self.make_service(gmail, StubSource([[]]))
+        service.poll_latest()
+        archive_results = []
+        history_results = []
+
+        def archive():
+            archive_results.append(service.acknowledge_archive("g-1"))
+
+        def read_history():
+            history_results.append(service.get_history())
+            history_returned.set()
+
+        archive_thread = threading.Thread(
+            target=archive,
+        )
+        history_thread = threading.Thread(target=read_history)
+
+        archive_thread.start()
+        self.assertTrue(archive_started.wait(timeout=1))
+        history_thread.start()
+        try:
+            self.assertTrue(
+                history_returned.wait(timeout=1),
+                "get_history blocked behind archive I/O",
+            )
+        finally:
+            archive_release.set()
+            archive_thread.join(timeout=1)
+            history_thread.join(timeout=1)
+        self.assertFalse(archive_thread.is_alive())
+        self.assertFalse(history_thread.is_alive())
+        self.assertEqual(len(archive_results), 1)
+        self.assertEqual(len(history_results), 1)
 
     def test_non_latest_gmail_id_becomes_eligible_only_when_history_is_returned(self):
         gmail = ArchiveCapableSource(

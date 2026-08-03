@@ -5,7 +5,8 @@ from __future__ import annotations
 import time
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from threading import Lock
+from dataclasses import dataclass
+from threading import Condition, Lock
 from typing import Any, Protocol
 
 from agent.otp_grabber.models import (
@@ -25,6 +26,13 @@ class CodeSource(Protocol):
 
 class GmailSource(CodeSource, Protocol):
     def archive_message(self, message_id: str) -> None: ...
+
+
+@dataclass
+class _ArchiveAttempt:
+    done: bool = False
+    error: BaseException | None = None
+    waiters: int = 0
 
 
 class FreshestCodeService:
@@ -55,6 +63,8 @@ class FreshestCodeService:
         self._eligible_gmail_ids: set[str] = set()
         self._archived_gmail_ids: set[str] = set()
         self._lock = Lock()
+        self._archive_condition = Condition(self._lock)
+        self._archive_attempts: dict[str, _ArchiveAttempt] = {}
 
     def poll_latest(self) -> PollResult:
         now_ms = int(self._clock_ms())
@@ -88,6 +98,7 @@ class FreshestCodeService:
         records.sort(key=lambda item: item.timestamp_ms, reverse=True)
         with self._lock:
             self._merge_history(records, cutoff_ms=cutoff_ms)
+            self._prune_archive_state()
             if records and records[0].source == "gmail":
                 self._eligible_gmail_ids.add(records[0].id)
         return PollResult(
@@ -104,6 +115,7 @@ class FreshestCodeService:
                 if record.timestamp_ms >= cutoff_ms
             ]
             result = HistoryResult(tuple(self._history))
+            self._prune_archive_state()
             self._eligible_gmail_ids.update(
                 record.id for record in result.codes if record.source == "gmail"
             )
@@ -111,14 +123,47 @@ class FreshestCodeService:
 
     def acknowledge_archive(self, message_id: str) -> ArchiveResult:
         normalized_id = str(message_id).strip()
-        with self._lock:
+        with self._archive_condition:
+            attempt = self._archive_attempts.get(normalized_id)
+            if attempt is not None:
+                attempt.waiters += 1
+                try:
+                    while not attempt.done:
+                        self._archive_condition.wait()
+                    if attempt.error is not None:
+                        raise attempt.error
+                    return ArchiveResult(normalized_id, True, True)
+                finally:
+                    attempt.waiters -= 1
+                    if attempt.done and attempt.waiters == 0:
+                        self._archive_attempts.pop(normalized_id, None)
             if normalized_id not in self._eligible_gmail_ids:
                 raise ValueError("message ID is not eligible for Gmail archive")
             if normalized_id in self._archived_gmail_ids:
                 return ArchiveResult(normalized_id, True, True)
+
+            attempt = _ArchiveAttempt()
+            self._archive_attempts[normalized_id] = attempt
+
+        try:
             self._gmail_source.archive_message(normalized_id)
-            self._archived_gmail_ids.add(normalized_id)
-            return ArchiveResult(normalized_id, True, False)
+        except BaseException as error:
+            with self._archive_condition:
+                attempt.error = error
+                attempt.done = True
+                self._archive_condition.notify_all()
+                if attempt.waiters == 0:
+                    self._archive_attempts.pop(normalized_id, None)
+            raise
+
+        with self._archive_condition:
+            if normalized_id in self._eligible_gmail_ids:
+                self._archived_gmail_ids.add(normalized_id)
+            attempt.done = True
+            self._archive_condition.notify_all()
+            if attempt.waiters == 0:
+                self._archive_attempts.pop(normalized_id, None)
+        return ArchiveResult(normalized_id, True, False)
 
     @staticmethod
     def _valid_records(
@@ -160,3 +205,10 @@ class FreshestCodeService:
             key=lambda item: item.timestamp_ms,
             reverse=True,
         )[: self._history_limit]
+
+    def _prune_archive_state(self) -> None:
+        recent_gmail_ids = {
+            record.id for record in self._history if record.source == "gmail"
+        }
+        self._eligible_gmail_ids.intersection_update(recent_gmail_ids)
+        self._archived_gmail_ids.intersection_update(recent_gmail_ids)

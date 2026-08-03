@@ -157,3 +157,36 @@ Commands were run from the worktree root.
 - Command: `make test-python`
 - Expected: all Python tests pass after the service and archive changes.
 - Observed: exit 0; 26 tests ran and passed (`OK`).
+
+### Task 3 code-quality remediation red
+
+- Command: `python3 -m unittest
+  agent.tests.test_service.ArchiveAcknowledgementTests.test_archive_eligibility_is_pruned_with_bounded_history
+  -v`
+- Expected: exit 1 because archive eligibility and idempotency bookkeeping
+  outlives the bounded recent history.
+- Observed: exit 1; 1 test ran and failed at
+  `assertRaisesRegex(ValueError, "not eligible")` with
+  `AssertionError: ValueError not raised` (`FAILED (failures=1)`).
+- Command: `python3 -m unittest
+  agent.tests.test_service.ArchiveAcknowledgementTests.test_history_access_proceeds_while_archive_io_is_blocked
+  -v`
+- Expected: exit 1 because `get_history` cannot acquire the service lock while
+  injected archive I/O is blocked.
+- Observed: exit 1; 1 test ran and failed at
+  `history_returned.wait(timeout=1)` with `AssertionError: False is not true :
+  get_history blocked behind archive I/O` (`FAILED (failures=1)`).
+
+### Task 3 code-quality remediation green
+
+- Command: `python3 -m unittest
+  agent.tests.test_service.ArchiveAcknowledgementTests.test_archive_eligibility_is_pruned_with_bounded_history
+  agent.tests.test_service.ArchiveAcknowledgementTests.test_history_access_proceeds_while_archive_io_is_blocked
+  -v`
+- Expected: stale archive state is pruned and history remains accessible during
+  blocked archive I/O.
+- Observed: exit 0; both focused tests ran and passed (`Ran 2 tests`,
+  `OK`).
+- Command: `make test-python`
+- Expected: the complete Python suite remains green.
+- Observed: exit 0; 28 tests ran and passed (`OK`).
