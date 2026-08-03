@@ -210,3 +210,28 @@ Commands were run from the worktree root.
 - Command: `make test-python`
 - Expected: the complete Python suite remains green.
 - Observed: exit 0; 30 tests ran and passed (`OK`).
+
+## Task 7: Landing page
+
+Date: 2026-08-02
+
+### Static implementation green
+
+- Added a dependency-free GitHub Pages surface in `docs/` with a product-specific
+  transfer-path demonstration, responsive layouts, semantic landmarks, two setup
+  actions, a clipboard fallback, a social card, and a branded 404 page.
+- Command: `node --check docs/app.js`
+- Observed: exit 0.
+- Command: `node .github/skills/impeccable/scripts/detect.mjs docs/ --json`
+- Initial observation: one advisory finding for a decorative grid-line background.
+  The generated-UI signature was removed rather than waived.
+- Final observation: exit 0 with `[]` and zero findings.
+
+### Visual verification green
+
+- Desktop capture: headless Chrome at 1440 × 1000.
+- Mobile capture: headless Chrome at 390 × 844.
+- Both captures rendered the expected typography, actions, responsive wrapping,
+  and Calm Card demonstration without horizontal overflow or clipped controls.
+- Browser URL detection could not run because the optional Puppeteer dependency
+  is not installed. Static detector and real Chrome screenshots were used instead.
