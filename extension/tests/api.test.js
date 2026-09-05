@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { copyThenAcknowledge, createApiClient } from "../src/api.js";
+import * as apiModule from "../src/api.js";
+
+const { copyThenAcknowledge, createApiClient } = apiModule;
 
 const latest = {
   id: "gmail-1",
@@ -78,6 +80,26 @@ test("copy succeeds before Gmail archive starts", async () => {
   });
   assert.deepEqual(events, ["copy:123456", "archive:gmail-1"]);
   assert.deepEqual(outcome, { copied: true, archive: "acknowledged" });
+});
+
+test("copyRecord rejects missing code values before invoking the clipboard", async () => {
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  const writes = [];
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    writable: true,
+    value: { clipboard: { writeText: async (value) => { writes.push(value); } } },
+  });
+  try {
+    assert.equal(typeof apiModule.copyRecord, "function");
+    for (const code of [undefined, null, "", "   "]) {
+      await assert.rejects(() => apiModule.copyRecord(code), /Verification code is required/);
+    }
+    assert.deepEqual(writes, []);
+  } finally {
+    if (originalNavigator) Object.defineProperty(globalThis, "navigator", originalNavigator);
+    else delete globalThis.navigator;
+  }
 });
 
 test("copy failure never archives and archive failure preserves copied result", async () => {

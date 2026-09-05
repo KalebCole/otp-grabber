@@ -42,6 +42,11 @@ export function createApiClient({ serverUrl, token, fetchFn = fetch }) {
   };
 }
 
+export async function copyRecord(code) {
+  if (typeof code !== "string" || !code.trim()) throw new TypeError("Verification code is required.");
+  await navigator.clipboard.writeText(code);
+}
+
 export async function copyThenAcknowledge({ record, copy, archive }) {
   await copy(record.code);
   if (record.source !== "gmail") return { copied: true, archive: "not-applicable" };

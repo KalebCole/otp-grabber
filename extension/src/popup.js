@@ -1,4 +1,4 @@
-import { copyThenAcknowledge, createApiClient } from "./api.js";
+import { copyRecord, copyThenAcknowledge, createApiClient } from "./api.js";
 import { derivePopupState, relativeAge } from "./model.js";
 
 const state = document.querySelector("#state");
@@ -7,6 +7,7 @@ const historyToggle = document.querySelector("#history-toggle");
 const historyList = document.querySelector("#history-list");
 let api;
 let history = [];
+let historyCopyStatus;
 
 function esc(value) { const span = document.createElement("span"); span.textContent = value; return span.innerHTML; }
 function showLoading() { state.setAttribute("aria-busy", "true"); state.innerHTML = '<div class="spinner" aria-hidden="true"></div><p>Looking for your freshest code…</p>'; }
@@ -20,11 +21,6 @@ function render(result) {
   const { latest } = view;
   state.innerHTML = `<div class="success-panel"><p class="meta">${esc(latest.source === "gmail" ? "Gmail" : "Messages")} · ${esc(relativeAge(latest.timestamp_ms))}</p><button class="code" type="button" aria-label="Copy code ${esc(latest.code.split("").join(" "))}">${esc(latest.code)}</button><p class="meta">${esc(latest.sender || latest.subject || "Verification code")}</p><p class="copy-status">Copying…</p></div>${view.kind === "partial" ? `<p class="warning">${esc(view.errors.map((error) => `${error.source}: ${error.message}`).join(" · "))}</p>` : ""}`;
 }
-async function copyRecord(code) {
-  if (typeof code !== "string" || !code.trim()) throw new TypeError("Verification code is required.");
-  await navigator.clipboard.writeText(code);
-}
-
 function renderHistory() {
   historyList.replaceChildren();
   for (const record of history) {
@@ -34,13 +30,24 @@ function renderHistory() {
       try {
         await copyThenAcknowledge({ record, copy: copyRecord, archive: (id) => api.archive(id) });
       } catch {
-        const copyStatus = state.querySelector(".copy-status");
-        if (copyStatus) { copyStatus.textContent = "Code ready to copy"; copyStatus.classList.add("error-text"); }
+        const copyStatus = state.querySelector(".copy-status") || historyCopyStatus;
+        if (copyStatus) {
+          copyStatus.hidden = false;
+          copyStatus.textContent = "Code ready to copy";
+          copyStatus.classList.add("error-text");
+        }
       }
     });
     item.append(button); historyList.append(item);
   }
   historyRegion.hidden = history.length === 0;
+  if (!historyCopyStatus) {
+    historyCopyStatus = document.createElement("p");
+    historyCopyStatus.classList.add("copy-status");
+    historyCopyStatus.setAttribute("aria-live", "polite");
+    historyCopyStatus.hidden = true;
+    historyRegion.append(historyCopyStatus);
+  }
 }
 
 async function load() {
@@ -52,15 +59,22 @@ async function load() {
     const latestResult = await api.latest();
     render(latestResult);
     if (latestResult.latest) {
+      let copyInFlight;
       const copyLatest = async () => {
-        try {
-          const outcome = await copyThenAcknowledge({ record: latestResult.latest, copy: copyRecord, archive: (id) => api.archive(id) });
-          const copyStatus = state.querySelector(".copy-status");
-          if (copyStatus) copyStatus.textContent = outcome.archive === "failed" ? "Copied — Gmail archive will retry next time." : "Copied to clipboard";
-        } catch {
-          const copyStatus = state.querySelector(".copy-status");
-          if (copyStatus) { copyStatus.textContent = "Code ready to copy"; copyStatus.classList.add("error-text"); }
-        }
+        if (copyInFlight) return copyInFlight;
+        copyInFlight = (async () => {
+          try {
+            const outcome = await copyThenAcknowledge({ record: latestResult.latest, copy: copyRecord, archive: (id) => api.archive(id) });
+            const copyStatus = state.querySelector(".copy-status");
+            if (copyStatus) copyStatus.textContent = outcome.archive === "failed" ? "Copied — Gmail archive will retry next time." : "Copied to clipboard";
+          } catch {
+            const copyStatus = state.querySelector(".copy-status");
+            if (copyStatus) { copyStatus.textContent = "Code ready to copy"; copyStatus.classList.add("error-text"); }
+          } finally {
+            copyInFlight = null;
+          }
+        })();
+        return copyInFlight;
       };
       state.querySelector(".code")?.addEventListener("click", copyLatest);
       await copyLatest();
