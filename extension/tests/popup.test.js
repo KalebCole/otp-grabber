@@ -1,67 +1,17 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { JSDOM } from "jsdom";
 
-class Element {
-  constructor(tagName = "div") {
-    this.tagName = tagName;
-    this.attributes = new Map();
-    this.children = [];
-    this.listeners = new Map();
-    this.classNames = new Set();
-    this.classList = { add: (name) => this.classNames.add(name) };
-    this.hidden = false;
-    this.textContent = "";
-    this._innerHTML = "";
-  }
-
-  set innerHTML(value) {
-    this._innerHTML = value;
-    this.children = [];
-    for (const className of ["copy-status", "code"]) {
-      if (!value.includes(`class="${className}"`)) continue;
-      const child = new Element(className === "code" ? "button" : "p");
-      child.classNames.add(className);
-      child.textContent = className === "copy-status" ? "Copying…" : value.match(new RegExp('<button class="code"[^>]*>([^<]+)</button>'))?.[1] ?? "";
-      this.children.push(child);
-    }
-  }
-
-  get innerHTML() { return this._innerHTML || this.textContent; }
-  setAttribute(name, value) { this.attributes.set(name, String(value)); }
-  getAttribute(name) { return this.attributes.get(name) ?? null; }
-  replaceChildren(...children) { this.children = children; }
-  append(child) { this.children.push(child); }
-  addEventListener(type, listener) { this.listeners.set(type, listener); }
-  async dispatch(type) { await this.listeners.get(type)?.(); }
-  querySelector(selector) {
-    if (!selector.startsWith(".")) return null;
-    const className = selector.slice(1);
-    for (const child of this.children) {
-      if (child.classNames.has(className)) return child;
-      const nested = child.querySelector(selector);
-      if (nested) return nested;
-    }
-    return null;
-  }
-}
-
-function popupDom() {
-  const elements = new Map([
-    ["#state", new Element()],
-    ["#history-region", new Element()],
-    ["#history-toggle", new Element("button")],
-    ["#history-list", new Element("ul")],
-  ]);
-  return {
-    querySelector(selector) { return elements.get(selector) ?? null; },
-    createElement(tagName) { return new Element(tagName); },
-    elements,
-  };
-}
+const popupHtml = await readFile(new URL("../popup.html", import.meta.url), "utf8");
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+async function click(element) { element.click(); await tick(); }
 
 async function loadPopup({ latest, history = [], clipboard, archiveCalls, deferLoad = false, throwDuringImport = false }) {
   const original = Object.fromEntries(["chrome", "document", "fetch", "navigator"].map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
+  let window;
   const cleanup = () => {
+    window?.close();
     for (const [name, descriptor] of Object.entries(original)) {
       if (descriptor) Object.defineProperty(globalThis, name, descriptor);
       else delete globalThis[name];
@@ -69,7 +19,9 @@ async function loadPopup({ latest, history = [], clipboard, archiveCalls, deferL
   };
   const replaceGlobal = (name, value) => Object.defineProperty(globalThis, name, { configurable: true, writable: true, value });
   try {
-    const dom = popupDom();
+    const jsdom = new JSDOM(popupHtml);
+    window = jsdom.window;
+    const dom = window.document;
     if (throwDuringImport) dom.querySelector = () => { throw new Error("popup setup failed"); };
     replaceGlobal("document", dom);
     replaceGlobal("chrome", { storage: { local: { get: async () => ({ serverUrl: "https://otp-mini.example.ts.net", token: "test-token" }) } } });
@@ -85,10 +37,10 @@ async function loadPopup({ latest, history = [], clipboard, archiveCalls, deferL
       },
     }));
     const loaded = import(new URL(`../src/popup.js?test=${Date.now()}-${Math.random()}`, import.meta.url));
-    if (deferLoad) await new Promise((resolve) => setTimeout(resolve, 0));
+    if (deferLoad) await tick();
     else {
       await loaded;
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
     }
     return { dom, loaded, cleanup };
   } catch (error) {
@@ -118,6 +70,16 @@ const gmail = {
   timestamp_ms: 1_700_000_000_000,
 };
 
+test("popup harness loads the static popup markup from popup.html", async () => {
+  const popup = await loadPopup({ latest: null, clipboard: async () => {}, archiveCalls: [] });
+  try {
+    assert.equal(popup.dom.querySelector("#title")?.textContent, "OTP Grabber");
+    assert.equal(popup.dom.querySelector("#history-region")?.hidden, true);
+  } finally {
+    popup.cleanup();
+  }
+});
+
 test("popup automatically copies the normalized newest code before archiving Gmail", async () => {
   const writes = [];
   const archiveCalls = [];
@@ -143,9 +105,9 @@ test("popup result card manually copies the displayed code", async () => {
     archiveCalls,
   });
   try {
-    const displayedCode = popup.dom.elements.get("#state").querySelector(".code").textContent;
+    const displayedCode = popup.dom.querySelector("#state .code").textContent;
     assert.equal(displayedCode, gmail.code);
-    await popup.dom.elements.get("#state").querySelector(".code").dispatch("click");
+    await click(popup.dom.querySelector("#state .code"));
     assert.deepEqual(writes, [gmail.code, displayedCode]);
     assert.deepEqual(archiveCalls, [gmail.id, gmail.id]);
   } finally {
@@ -167,12 +129,12 @@ test("manual click during automatic copy produces one clipboard write and Gmail 
   const popup = await loadPopup({ latest: gmail, clipboard, archiveCalls, deferLoad: true });
   try {
     await clipboardStarted;
-    const manualCopy = popup.dom.elements.get("#state").querySelector(".code").dispatch("click");
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    const manualCopy = click(popup.dom.querySelector("#state .code"));
+    await tick();
     releaseClipboard();
     await manualCopy;
     await popup.loaded;
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await tick();
     assert.deepEqual(writes, [gmail.code]);
     assert.deepEqual(archiveCalls, [gmail.id]);
   } finally {
@@ -191,7 +153,7 @@ test("popup history copies the selected normalized code", async () => {
     archiveCalls,
   });
   try {
-    await popup.dom.elements.get("#history-list").children[0].children[0].dispatch("click");
+    await click(popup.dom.querySelector("#history-list button"));
     assert.deepEqual(writes, ["777777", "654321"]);
   } finally {
     popup.cleanup();
@@ -210,10 +172,10 @@ test("popup history clipboard denial shows compact failure without archiving Gma
     archiveCalls,
   });
   try {
-    await popup.dom.elements.get("#history-list").children[0].children[0].dispatch("click");
-    const status = popup.dom.elements.get("#state").querySelector(".copy-status");
+    await click(popup.dom.querySelector("#history-list button"));
+    const status = popup.dom.querySelector("#state .copy-status");
     assert.equal(status.textContent, "Code ready to copy");
-    assert.ok(status.classNames.has("error-text"));
+    assert.ok(status.classList.contains("error-text"));
     assert.deepEqual(archiveCalls, []);
   } finally {
     popup.cleanup();
@@ -230,10 +192,10 @@ test("history clipboard denial is visible when no latest code is available", asy
     archiveCalls,
   });
   try {
-    await popup.dom.elements.get("#history-list").children[0].children[0].dispatch("click");
-    const status = popup.dom.elements.get("#history-region").querySelector(".copy-status");
+    await click(popup.dom.querySelector("#history-list button"));
+    const status = popup.dom.querySelector("#history-region .copy-status");
     assert.equal(status.textContent, "Code ready to copy");
-    assert.ok(status.classNames.has("error-text"));
+    assert.ok(status.classList.contains("error-text"));
     assert.deepEqual(archiveCalls, []);
   } finally {
     popup.cleanup();
@@ -266,9 +228,9 @@ test("popup shows compact copy failure without archiving Gmail", async () => {
     archiveCalls,
   });
   try {
-    const status = popup.dom.elements.get("#state").querySelector(".copy-status");
+    const status = popup.dom.querySelector("#state .copy-status");
     assert.equal(status.textContent, "Code ready to copy");
-    assert.ok(status.classNames.has("error-text"));
+    assert.ok(status.classList.contains("error-text"));
     assert.deepEqual(archiveCalls, []);
   } finally {
     popup.cleanup();

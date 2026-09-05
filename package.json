@@ -8,7 +8,9 @@
     "test:extension": "node --test extension/tests/*.test.js",
     "test:web": "node --test scripts/test-web.mjs"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "jsdom": "^26.1.0"
+  },
   "engines": {
     "node": ">=20"
   },
