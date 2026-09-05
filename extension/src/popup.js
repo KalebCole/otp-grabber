@@ -30,7 +30,14 @@ function renderHistory() {
   for (const record of history) {
     const item = document.createElement("li"); const button = document.createElement("button");
     button.type = "button"; button.innerHTML = `<span class="history-code">${esc(record.code)}</span><span class="meta">${esc(relativeAge(record.timestamp_ms))}</span>`;
-    button.addEventListener("click", async () => { await copyThenAcknowledge({ record, copy: copyRecord, archive: (id) => api.archive(id) }); });
+    button.addEventListener("click", async () => {
+      try {
+        await copyThenAcknowledge({ record, copy: copyRecord, archive: (id) => api.archive(id) });
+      } catch {
+        const copyStatus = state.querySelector(".copy-status");
+        if (copyStatus) { copyStatus.textContent = "Code ready to copy"; copyStatus.classList.add("error-text"); }
+      }
+    });
     item.append(button); historyList.append(item);
   }
   historyRegion.hidden = history.length === 0;

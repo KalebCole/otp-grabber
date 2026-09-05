@@ -148,6 +148,28 @@ test("popup history copies the selected normalized code", async () => {
   }
 });
 
+test("popup history clipboard denial shows compact failure without archiving Gmail", async () => {
+  const archiveCalls = [];
+  const historical = { ...gmail, id: "gmail-history-1", code: "654321" };
+  const popup = await loadPopup({
+    latest: { ...gmail, id: "message-latest-1", source: "messages", code: "777777" },
+    history: [historical],
+    clipboard: async (value) => {
+      if (value === historical.code) throw new Error("clipboard denied");
+    },
+    archiveCalls,
+  });
+  try {
+    await popup.dom.elements.get("#history-list").children[0].children[0].dispatch("click");
+    const status = popup.dom.elements.get("#state").querySelector(".copy-status");
+    assert.equal(status.textContent, "Code ready to copy");
+    assert.ok(status.classNames.has("error-text"));
+    assert.deepEqual(archiveCalls, []);
+  } finally {
+    popup.cleanup();
+  }
+});
+
 test("popup never copies missing code values from an invalid API response", async () => {
   for (const code of [undefined, null, "", "   "]) {
     const writes = [];
