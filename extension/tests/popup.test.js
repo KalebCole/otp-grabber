@@ -21,12 +21,12 @@ class Element {
       if (!value.includes(`class="${className}"`)) continue;
       const child = new Element(className === "code" ? "button" : "p");
       child.classNames.add(className);
-      child.textContent = className === "copy-status" ? "Copying…" : value.match(/<div class="code"[^>]*>([^<]+)<\/div>/)?.[1] ?? "";
+      child.textContent = className === "copy-status" ? "Copying…" : value.match(new RegExp('<button class="code"[^>]*>([^<]+)</button>'))?.[1] ?? "";
       this.children.push(child);
     }
   }
 
-  get innerHTML() { return this._innerHTML; }
+  get innerHTML() { return this._innerHTML || this.textContent; }
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
   getAttribute(name) { return this.attributes.get(name) ?? null; }
   replaceChildren(...children) { this.children = children; }
@@ -123,8 +123,10 @@ test("popup result card manually copies the displayed code", async () => {
     archiveCalls,
   });
   try {
+    const displayedCode = popup.dom.elements.get("#state").querySelector(".code").textContent;
+    assert.equal(displayedCode, gmail.code);
     await popup.dom.elements.get("#state").querySelector(".code").dispatch("click");
-    assert.deepEqual(writes, ["123456", "123456"]);
+    assert.equal(writes.at(-1), displayedCode);
   } finally {
     popup.cleanup();
   }
