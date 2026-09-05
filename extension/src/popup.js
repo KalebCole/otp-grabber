@@ -18,10 +18,11 @@ function render(result) {
   if (view.kind === "offline") return showSetup("Your agent is unavailable. Check the private connection.");
   if (view.kind === "empty") { state.innerHTML = '<p>No recent verification code was found.</p>'; return; }
   const { latest } = view;
-  state.innerHTML = `<div class="success-panel"><p class="meta">${esc(latest.source === "gmail" ? "Gmail" : "Messages")} · ${esc(relativeAge(latest.timestamp_ms))}</p><div class="code" role="text" aria-label="Code ${esc(latest.code.split("").join(" "))}">${esc(latest.code)}</div><p class="meta">${esc(latest.sender || latest.subject || "Verification code")}</p><p class="copy-status">Copying…</p></div>${view.kind === "partial" ? `<p class="warning">${esc(view.errors.map((error) => `${error.source}: ${error.message}`).join(" · "))}</p>` : ""}`;
+  state.innerHTML = `<div class="success-panel"><p class="meta">${esc(latest.source === "gmail" ? "Gmail" : "Messages")} · ${esc(relativeAge(latest.timestamp_ms))}</p><button class="code" type="button" aria-label="Copy code ${esc(latest.code.split("").join(" "))}">${esc(latest.code)}</button><p class="meta">${esc(latest.sender || latest.subject || "Verification code")}</p><p class="copy-status">Copying…</p></div>${view.kind === "partial" ? `<p class="warning">${esc(view.errors.map((error) => `${error.source}: ${error.message}`).join(" · "))}</p>` : ""}`;
 }
-async function copyRecord(record) {
-  await navigator.clipboard.writeText(record.code);
+async function copyRecord(code) {
+  if (typeof code !== "string" || !code.trim()) throw new TypeError("Verification code is required.");
+  await navigator.clipboard.writeText(code);
 }
 
 function renderHistory() {
@@ -44,14 +45,18 @@ async function load() {
     const latestResult = await api.latest();
     render(latestResult);
     if (latestResult.latest) {
-      try {
-        const outcome = await copyThenAcknowledge({ record: latestResult.latest, copy: copyRecord, archive: (id) => api.archive(id) });
-        const copyStatus = state.querySelector(".copy-status");
-        if (copyStatus) copyStatus.textContent = outcome.archive === "failed" ? "Copied — Gmail archive will retry next time." : "Copied to clipboard";
-      } catch {
-        const copyStatus = state.querySelector(".copy-status");
-        if (copyStatus) { copyStatus.textContent = "Code ready to copy"; copyStatus.classList.add("error-text"); }
-      }
+      const copyLatest = async () => {
+        try {
+          const outcome = await copyThenAcknowledge({ record: latestResult.latest, copy: copyRecord, archive: (id) => api.archive(id) });
+          const copyStatus = state.querySelector(".copy-status");
+          if (copyStatus) copyStatus.textContent = outcome.archive === "failed" ? "Copied — Gmail archive will retry next time." : "Copied to clipboard";
+        } catch {
+          const copyStatus = state.querySelector(".copy-status");
+          if (copyStatus) { copyStatus.textContent = "Code ready to copy"; copyStatus.classList.add("error-text"); }
+        }
+      };
+      state.querySelector(".code")?.addEventListener("click", copyLatest);
+      await copyLatest();
     }
     try { history = (await api.history()).codes; renderHistory(); } catch { history = []; renderHistory(); }
   } catch { showSetup("Your agent is unavailable. Check the private connection."); }
