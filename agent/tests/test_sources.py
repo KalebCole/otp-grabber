@@ -2,9 +2,12 @@ import base64
 import json
 import sqlite3
 import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 
-from agent.otp_grabber.sources.gmail import GmailSource
+from agent.otp_grabber.config import generate_config, load_config, update_gmail_backend
+from agent.otp_grabber.sources.gmail import GmailSource, _QUERY_KEYWORDS
 from agent.otp_grabber.sources.messages import MessagesSource
 
 from agent.tests.test_extractor import typedstream_body
@@ -30,6 +33,165 @@ class RecordingRunner:
 
 
 class GmailSourceTests(unittest.TestCase):
+    def test_gog_fetch_uses_protected_launcher_and_readonly_exact_authorities(self):
+        runner = RecordingRunner(
+            [
+                json.dumps({"results": [{"id": "m1"}]}),
+                json.dumps(
+                    {
+                        "message": {
+                            "id": "m1",
+                            "internalDate": "1785725100000",
+                            "payload": {
+                                "headers": [
+                                    {"name": "From", "value": "verify@example.test"},
+                                    {"name": "Subject", "value": "Your verification code"},
+                                ],
+                                "mimeType": "text/plain",
+                                "body": {"data": encode_gmail_body("Your verification code is A7B9C2.")},
+                            },
+                        }
+                    }
+                ),
+            ]
+        )
+        source = GmailSource(
+            backend="gog",
+            run_command=runner,
+            launcher="/protected/direct-env.zsh",
+            client="test-client",
+            account="account@example.test",
+        )
+
+        records = source.fetch_recent(since_timestamp_ms=1785724800000)
+
+        self.assertEqual([record["id"] for record in records], ["m1"])
+        self.assertEqual(runner.calls[0][0], [
+            "/bin/zsh", "-c", 'source "$1"; shift; exec "$@"', "--",
+            "/protected/direct-env.zsh", "gog", "--client", "test-client",
+            "--account", "account@example.test", "--enable-commands-exact",
+            "gmail.messages.search", "--readonly", "--no-input", "--json",
+            "gmail", "messages", "search",
+            "after:1785724800 in:anywhere (" + _QUERY_KEYWORDS + ")",
+            "--max", "12",
+        ])
+        self.assertEqual(runner.calls[1][0], [
+            "/bin/zsh", "-c", 'source "$1"; shift; exec "$@"', "--",
+            "/protected/direct-env.zsh", "gog", "--client", "test-client",
+            "--account", "account@example.test", "--enable-commands-exact",
+            "gmail.raw", "--readonly", "--no-input", "--json", "gmail", "raw", "m1",
+        ])
+
+    def test_gog_archive_has_only_archive_write_authority(self):
+        runner = RecordingRunner(["{}"])
+        source = GmailSource(
+            backend="gog",
+            run_command=runner,
+            launcher="/protected/direct-env.zsh",
+            client="test-client",
+            account="account@example.test",
+        )
+
+        source.archive_message("m1")
+
+        command = runner.calls[0][0]
+        self.assertEqual(command, [
+            "/bin/zsh", "-c", 'source "$1"; shift; exec "$@"', "--",
+            "/protected/direct-env.zsh", "gog", "--client", "test-client",
+            "--account", "account@example.test", "--enable-commands-exact",
+            "gmail.archive", "--no-input", "--json", "gmail", "archive", "m1",
+        ])
+        self.assertNotIn("--readonly", command)
+
+    def test_rejects_unknown_backend(self):
+        with self.assertRaisesRegex(ValueError, "backend"):
+            GmailSource(backend="other")
+
+    def test_config_defaults_to_gws_and_allows_gog_opt_in(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "agent.json"
+            generate_config(path, token_factory=lambda: "x" * 32)
+            self.assertEqual(load_config(path).gmail_backend, "gws")
+
+            path.write_text(
+                '{"port":8877,"token":"' + "x" * 32
+                + '","gmail_backend":"gog","gog_launcher":"/protected/direct-env.zsh",'
+                + '"gog_client":"test-client","gog_account":"account@example.test"}'
+            )
+            config = load_config(path)
+            self.assertEqual(config.gmail_backend, "gog")
+            self.assertEqual(config.gog_launcher, "/protected/direct-env.zsh")
+
+    def test_gog_config_requires_all_explicit_runtime_values(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "agent.json"
+            path.write_text('{"port":8877,"token":"' + "x" * 32 + '","gmail_backend":"gog"}')
+
+            with self.assertRaisesRegex(ValueError, "gog_launcher"):
+                load_config(path)
+
+    def test_gog_timeout_and_stderr_do_not_expose_runtime_configuration(self):
+        secret_launcher = "/private/path/launcher.zsh"
+        secret_account = "private@example.test"
+
+        def time_out(command, **kwargs):
+            raise subprocess.TimeoutExpired(command, 25)
+
+        source = GmailSource(
+            backend="gog", run_command=time_out, launcher=secret_launcher,
+            client="private-client", account=secret_account,
+        )
+        with self.assertRaisesRegex(RuntimeError, "^gmail source timed out$") as timeout:
+            source.fetch_recent(since_timestamp_ms=0)
+        self.assertNotIn(secret_launcher, str(timeout.exception))
+        self.assertNotIn(secret_account, str(timeout.exception))
+
+        source = GmailSource(
+            backend="gog",
+            run_command=lambda command, **kwargs: subprocess.CompletedProcess(
+                command, 1, "", f"failed for {secret_launcher} {secret_account}"
+            ),
+            launcher=secret_launcher, client="private-client", account=secret_account,
+        )
+        with self.assertRaisesRegex(RuntimeError, "^gmail source command failed$") as failed:
+            source.fetch_recent(since_timestamp_ms=0)
+        self.assertNotIn(secret_launcher, str(failed.exception))
+        self.assertNotIn(secret_account, str(failed.exception))
+
+    def test_atomic_backend_update_preserves_core_config_and_removes_gog_values_on_rollback(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "agent.json"
+            generate_config(path, token_factory=lambda: "x" * 32)
+
+            update_gmail_backend(
+                path, backend="gog", gog_launcher="/protected/launcher.zsh",
+                gog_client="test-client", gog_account="account@example.test",
+            )
+            self.assertEqual(load_config(path).gmail_backend, "gog")
+            self.assertEqual(load_config(path).token, "x" * 32)
+
+            update_gmail_backend(path, backend="gws")
+            payload = json.loads(path.read_text())
+            self.assertEqual(load_config(path).gmail_backend, "gws")
+            self.assertNotIn("gog_account", payload)
+
+    def test_gog_envelope_canary_uses_only_readonly_search_and_raw(self):
+        runner = RecordingRunner([
+            json.dumps({"results": [{"id": "listed-message"}]}),
+            json.dumps({"message": {"id": "known-message", "payload": {}}}),
+        ])
+        source = GmailSource(
+            backend="gog", run_command=runner, launcher="/protected/launcher.zsh",
+            client="test-client", account="account@example.test",
+        )
+
+        result = source.verify_gog_envelopes(message_id="known-message", since_timestamp_ms=0)
+
+        self.assertEqual(result, {"listing_count": 1, "message_id": "known-message"})
+        for command, _ in runner.calls:
+            self.assertIn("--readonly", command)
+            self.assertNotIn("gmail.archive", command)
+
     def test_fetches_real_shaped_messages_with_file_keyring(self):
         runner = RecordingRunner(
             [

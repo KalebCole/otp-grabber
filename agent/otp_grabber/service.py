@@ -83,8 +83,8 @@ class FreshestCodeService:
             for source_name, future in futures.items():
                 try:
                     source_records = future.result()
-                except Exception as error:
-                    errors.append(SourceError(source_name, str(error)))
+                except Exception:
+                    errors.append(SourceError(source_name, "source_unavailable"))
                     continue
                 records.extend(
                     self._valid_records(

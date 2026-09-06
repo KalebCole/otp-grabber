@@ -186,8 +186,8 @@ class FreshestCodeServiceTests(unittest.TestCase):
             },
         )
 
-    def test_returns_available_source_with_partial_failure(self):
-        gmail = StubSource([RuntimeError("gmail unavailable")])
+    def test_returns_available_source_with_sanitized_partial_failure(self):
+        gmail = StubSource([RuntimeError("private@example.test /private/launcher")])
         messages = StubSource(
             [[record("m-1", "messages", "654321", NOW_MS - 10_000)]]
         )
@@ -197,10 +197,10 @@ class FreshestCodeServiceTests(unittest.TestCase):
         self.assertEqual(result.latest.id, "m-1")
         self.assertEqual(
             [error.to_dict() for error in result.errors],
-            [{"source": "gmail", "message": "gmail unavailable"}],
+            [{"source": "gmail", "message": "source_unavailable"}],
         )
 
-    def test_returns_all_source_errors_when_every_source_fails(self):
+    def test_returns_all_source_errors_without_exception_details(self):
         gmail = StubSource([RuntimeError("gmail unavailable")])
         messages = StubSource([RuntimeError("messages unavailable")])
 
@@ -212,8 +212,8 @@ class FreshestCodeServiceTests(unittest.TestCase):
             {
                 "latest": None,
                 "errors": [
-                    {"source": "gmail", "message": "gmail unavailable"},
-                    {"source": "messages", "message": "messages unavailable"},
+                    {"source": "gmail", "message": "source_unavailable"},
+                    {"source": "messages", "message": "source_unavailable"},
                 ],
             },
         )

@@ -171,7 +171,12 @@ def main() -> None:
 
     config = load_config(Path(arguments.config) if arguments.config else None)
     service = FreshestCodeService(
-        gmail_source=GmailSource(),
+        gmail_source=GmailSource(
+            backend=config.gmail_backend,
+            launcher=config.gog_launcher,
+            client=config.gog_client,
+            account=config.gog_account,
+        ),
         messages_source=MessagesSource(
             database_path=Path.home() / "Library" / "Messages" / "chat.db"
         ),

@@ -43,6 +43,45 @@ The installer creates a random token at:
 
 The file and its parent directory are private to your macOS user.
 
+### Optional gog Gmail backend: explicit rollout and rollback
+
+`gws` is the default. `gog` is disabled until you explicitly supply all three
+non-secret runtime values; none are stored in the repository. First install the
+agent, then enable `gog` with its launcher path, OAuth client name, and Gmail
+account:
+
+```bash
+scripts/configure-gmail-backend.sh --gog \
+  --gog-launcher "$HOME/.config/gogcli/direct-env.zsh" \
+  --gog-client "your-client-name" \
+  --gog-account "you@example.com"
+```
+
+The command validates the configuration, atomically replaces the private
+`agent.json`, reloads the per-user LaunchAgent, and requires authenticated
+`/v1/health` readiness before reporting success. If reload or readiness fails,
+it atomically restores the preceding configuration and reloads it. Preview the
+operation with `--dry-run`. Roll back to the default backend with:
+
+```bash
+scripts/configure-gmail-backend.sh --gws
+```
+
+Before relying on `gog`, run the authenticated read-only envelope canary with a
+known Gmail message ID. It invokes only `gmail.messages.search` and `gmail.raw`
+under `--readonly`; it cannot archive or modify mail:
+
+```bash
+scripts/gog-envelope-canary.sh --confirm-read-only \
+  --config "$HOME/Library/Application Support/OTP Grabber/agent.json" \
+  --message-id "known-gmail-message-id"
+```
+
+The canary verifies the live search and raw-message JSON envelopes and prints
+only success plus the listing count. It does not print account configuration,
+command arguments, or message content. A passing loopback health endpoint alone
+does not prove the `gog` OAuth path is ready; run this canary after the rollout.
+
 ### 2. Install a client
 
 Download the [latest release](https://github.com/KalebCole/otp-grabber/releases/latest).
