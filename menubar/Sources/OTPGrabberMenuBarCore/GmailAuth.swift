@@ -4,6 +4,7 @@ import Security
 
 public enum GmailAuthError: Error, Equatable, Sendable {
     case missingClientID
+    case missingClientSecret
     case signInRequired
     case authorizationRejected
     case missingRefreshToken
@@ -58,9 +59,9 @@ private extension Data {
 
 public struct GmailRefreshTokenStore: Sendable {
     private let service = "com.otpgrabber.menubar.gmail"
-    private let account = "primary"
+    private let account: String
 
-    public init() {}
+    public init(clientID: String) { account = clientID }
 
     public func load() throws -> String? {
         var result: CFTypeRef?
@@ -105,15 +106,56 @@ public struct GmailRefreshTokenStore: Sendable {
     }
 }
 
+public struct GmailClientSecretStore: Sendable {
+    private let service = "com.otpgrabber.menubar.gmail.client-secret"
+    private let account: String
+
+    public init(clientID: String) { account = clientID }
+
+    public func load() throws -> String? {
+        var result: CFTypeRef?
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status == errSecItemNotFound { return nil }
+        guard status == errSecSuccess, let data = result as? Data,
+              let secret = String(data: data, encoding: .utf8) else { throw GmailAuthError.keychain(status) }
+        return secret
+    }
+
+    public func save(_ secret: String) throws {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+        ]
+        let attributes: [String: Any] = [kSecValueData as String: Data(secret.utf8)]
+        let status = SecItemAdd(query.merging(attributes) { _, new in new } as CFDictionary, nil)
+        if status == errSecDuplicateItem {
+            let update = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+            guard update == errSecSuccess else { throw GmailAuthError.keychain(update) }
+        } else if status != errSecSuccess {
+            throw GmailAuthError.keychain(status)
+        }
+    }
+}
+
 public actor GmailTokenProvider {
     private let clientID: String
     private let store: GmailRefreshTokenStore
+    private let secretStore: GmailClientSecretStore
     private let session: URLSession
     private var cached: (value: String, expiresAt: Date)?
 
-    public init(clientID: String, store: GmailRefreshTokenStore = .init(), session: URLSession = .shared) {
+    public init(clientID: String, store: GmailRefreshTokenStore? = nil, secretStore: GmailClientSecretStore? = nil, session: URLSession = .shared) {
         self.clientID = clientID
-        self.store = store
+        self.store = store ?? GmailRefreshTokenStore(clientID: clientID)
+        self.secretStore = secretStore ?? GmailClientSecretStore(clientID: clientID)
         self.session = session
     }
 
@@ -134,12 +176,8 @@ public actor GmailTokenProvider {
     }
 
     private func exchange(_ fields: [String: String], requiresRefresh: Bool) async throws -> String {
-        var request = URLRequest(url: URL(string: "https://oauth2.googleapis.com/token")!)
-        request.httpMethod = "POST"
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        var body = URLComponents()
-        body.queryItems = fields.map { URLQueryItem(name: $0.key, value: $0.value) }
-        request.httpBody = Data((body.percentEncodedQuery ?? "").utf8)
+        guard let secret = try secretStore.load(), !secret.isEmpty else { throw GmailAuthError.missingClientSecret }
+        let request = Self.tokenRequest(fields: fields, clientSecret: secret)
         let (data, response) = try await session.data(for: request)
         guard let response = response as? HTTPURLResponse else { throw GmailAuthError.invalidResponse }
         if response.statusCode == 400 || response.statusCode == 401 {
@@ -157,6 +195,17 @@ public actor GmailTokenProvider {
         if let refresh = token.refreshToken { try store.save(refresh) }
         cached = (token.accessToken, Date().addingTimeInterval(TimeInterval(token.expiresIn)))
         return token.accessToken
+    }
+
+    static func tokenRequest(fields: [String: String], clientSecret: String) -> URLRequest {
+        var request = URLRequest(url: URL(string: "https://oauth2.googleapis.com/token")!)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        var body = URLComponents()
+        body.queryItems = fields.merging(["client_secret": clientSecret]) { _, latest in latest }
+            .map { URLQueryItem(name: $0.key, value: $0.value) }
+        request.httpBody = Data((body.percentEncodedQuery ?? "").replacingOccurrences(of: "+", with: "%2B").utf8)
+        return request
     }
 
     private struct TokenResponse: Decodable {

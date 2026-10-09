@@ -33,15 +33,20 @@ every check.
    enter its ID in app Settings. Google's documented setup for this client and the
    consent screen uses the Cloud Console; the `gcloud iam oauth-clients` command
    creates a different kind of client and is not suitable for Gmail desktop access.
-   The app uses a random
-   local loopback port, PKCE, and the `gmail.readonly` scope. It stores the refresh
-   token in Keychain. Do not put the client secret or a token in this repository.
+   Save the Desktop client's secret when Google shows it. Google's token endpoint
+   requires that secret for this client even with PKCE. If it was not saved, use
+   **Add Secret** on that client's details page to generate a replacement. The app
+   uses a random local loopback port, PKCE, and the `gmail.readonly` scope. It
+   stores the client secret and refresh token in Keychain. Do not put either in
+   this repository or send them through chat.
 4. If the consent screen is External and remains in Testing, expect refresh-token
    expiry after seven days and reconnect through the app. For long-term personal
    use, review Google's publishing and restricted-scope personal-use guidance.
-5. Open the menu bar panel, choose Settings, and choose Connect Gmail. The app
-   includes this project's desktop client ID by default; the field remains editable
-   if the client changes. Finish consent in the default browser.
+5. Open the menu bar panel, choose Settings, paste the Desktop client secret into
+   the secure field, and choose Connect Gmail. The app includes this project's
+   desktop client ID by default; the field remains editable if the client changes.
+   Finish consent in the default browser on the same Mac. The secret field can be
+   left empty on later connections because the app reads it from Keychain.
 
 Google's [desktop OAuth guide](https://developers.google.com/identity/protocols/oauth2/native-app)
 describes the loopback redirect and PKCE. The [Gmail scope list](https://developers.google.com/workspace/gmail/api/auth/scopes)

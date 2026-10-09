@@ -6,6 +6,24 @@ import Testing
 
 @Suite("OTP Grabber menu-bar core")
 struct OTPGrabberMenuBarTests {
+    @Test("desktop token exchange sends client secret in the form body")
+    func gmailTokenRequest() throws {
+        let request = GmailTokenProvider.tokenRequest(
+            fields: ["client_id": "desktop-client", "code": "one-time-code", "grant_type": "authorization_code"],
+            clientSecret: "secret+with&symbols"
+        )
+        let body = try #require(String(data: try #require(request.httpBody), encoding: .utf8))
+        let components = try #require(URLComponents(string: "https://example.test/?\(body)"))
+        let values = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).compactMap { item in
+            item.value.map { (item.name, $0) }
+        })
+        #expect(request.httpMethod == "POST")
+        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/x-www-form-urlencoded")
+        #expect(values["client_secret"] == "secret+with&symbols")
+        #expect(values["code"] == "one-time-code")
+        #expect(request.url?.query == nil)
+    }
+
     @Test("history persists and prunes after 24 hours")
     func findingHistory() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("otp-history-\(UUID().uuidString)")

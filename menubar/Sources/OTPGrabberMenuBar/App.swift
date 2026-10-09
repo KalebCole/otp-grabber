@@ -48,6 +48,7 @@ private final class PanelModel: ObservableObject {
     @Published var history: [Finding] = []
     @Published var clientID = UserDefaults.standard.string(forKey: "gmailClientID") ?? PanelModel.defaultGmailClientID
     @Published var gmailStatus = "Checking saved sign-in…"
+    @Published var hasClientSecret = false
     @Published var connectingGmail = false
     @Published var showingGmailResult = false
     @Published var busy = false
@@ -55,25 +56,38 @@ private final class PanelModel: ObservableObject {
 
     init() {
         history = (try? store.history()) ?? []
-        do { gmailStatus = try GmailRefreshTokenStore().load() == nil ? "Not connected" : "Sign-in saved" }
+        do { gmailStatus = try GmailRefreshTokenStore(clientID: clientID).load() == nil ? "Not connected" : "Sign-in saved" }
         catch let GmailAuthError.keychain(status) { gmailStatus = "Keychain error (OSStatus \(status))" }
         catch { gmailStatus = "Could not check saved sign-in" }
+        hasClientSecret = (try? GmailClientSecretStore(clientID: clientID).load()) != nil
     }
 
     func saveClientID() {
+        let previousID = UserDefaults.standard.string(forKey: "gmailClientID") ?? Self.defaultGmailClientID
         clientID = clientID.trimmingCharacters(in: .whitespacesAndNewlines)
         UserDefaults.standard.set(clientID, forKey: "gmailClientID")
+        hasClientSecret = (try? GmailClientSecretStore(clientID: clientID).load()) != nil
+        if clientID != previousID {
+            gmailStatus = (try? GmailRefreshTokenStore(clientID: clientID).load()) == nil ? "Not connected" : "Sign-in saved"
+        }
         headline = "Gmail client ID saved"
         detail = "Choose Connect Gmail to sign in."
     }
 
-    func connectGmail() async {
+    func connectGmail(newSecret: String = "") async {
         guard !connectingGmail else { return }
         connectingGmail = true
         showingGmailResult = true
         defer { connectingGmail = false }
         saveClientID()
         do {
+            let secretStore = GmailClientSecretStore(clientID: clientID)
+            let providedSecret = newSecret.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !providedSecret.isEmpty { try secretStore.save(providedSecret) }
+            guard try secretStore.load()?.isEmpty == false else {
+                throw GmailAuthError.missingClientSecret
+            }
+            hasClientSecret = true
             let server = try OAuthCallbackServer()
             let request = try GmailOAuth.makeRequest(clientID: clientID, redirectURI: server.redirectURI)
             let provider = GmailTokenProvider(clientID: clientID)
@@ -125,6 +139,10 @@ private final class PanelModel: ObservableObject {
         case .failure(let error as GmailAuthError):
             sourceFailures += 1; errors.append("Gmail could not be read. Try again.")
             if case .keychain(let status) = error { gmailStatus = "Keychain error (OSStatus \(status))" }
+            if error == .missingClientSecret { gmailStatus = "Add the desktop client secret in Settings" }
+            if case .tokenRejected(_, let reason) = error, reason == "invalid_client" || reason == "invalid_request" {
+                gmailStatus = "Update the desktop client secret in Settings and reconnect Gmail"
+            }
         case .failure(let error as GmailReadError) where error == .signInRequired:
             sourceFailures += 1; errors.append("Reconnect Gmail in Settings."); gmailStatus = "Reconnect Gmail in Settings"
         case .failure: sourceFailures += 1; errors.append("Gmail could not be read. Try again.")
@@ -190,6 +208,8 @@ private final class PanelModel: ObservableObject {
                 return "Google returned an unexpected token response."
             case .missingClientID:
                 return "Enter a desktop OAuth client ID."
+            case .missingClientSecret:
+                return "Enter the desktop OAuth client secret in Settings."
             }
         }
         if let callback = error as? OAuthCallbackError {
@@ -251,6 +271,7 @@ private enum HistoryFilter: String, CaseIterable {
 
 private struct PanelView: View {
     @ObservedObject var model: PanelModel
+    @State private var clientSecret = ""
     @State private var historyExpanded = false
     @State private var settingsExpanded = false
     @State private var filter: HistoryFilter = .all
@@ -269,9 +290,16 @@ private struct PanelView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Gmail desktop OAuth client ID").font(.caption)
                         TextField("Client ID", text: $model.clientID)
+                        SecureField("Desktop OAuth client secret", text: $clientSecret)
+                        Text(model.hasClientSecret ? "Client secret saved in Keychain" : "Enter the Desktop client secret from Google Auth Platform")
+                            .font(.caption).foregroundStyle(.secondary)
                         HStack {
                             Button("Save") { model.saveClientID() }
-                            Button("Connect Gmail") { Task { await model.connectGmail() } }
+                            Button("Connect Gmail") {
+                                let providedSecret = clientSecret
+                                clientSecret = ""
+                                Task { await model.connectGmail(newSecret: providedSecret) }
+                            }
                                 .disabled(model.connectingGmail)
                         }
                         Text("Messages needs Full Disk Access in System Settings.").font(.caption)
