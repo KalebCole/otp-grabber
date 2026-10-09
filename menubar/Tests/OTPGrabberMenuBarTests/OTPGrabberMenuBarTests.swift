@@ -12,7 +12,8 @@ struct OTPGrabberMenuBarTests {
             fields: ["client_id": "desktop-client", "code": "one-time-code", "grant_type": "authorization_code"],
             clientSecret: "secret+with&symbols"
         )
-        let body = try #require(String(data: try #require(request.httpBody), encoding: .utf8))
+        let data = try #require(request.httpBody)
+        let body = try #require(String(data: data, encoding: .utf8))
         let components = try #require(URLComponents(string: "https://example.test/?\(body)"))
         let values = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).compactMap { item in
             item.value.map { (item.name, $0) }
