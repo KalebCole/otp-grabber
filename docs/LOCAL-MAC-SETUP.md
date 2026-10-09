@@ -1,20 +1,43 @@
 # Local macOS app setup and acceptance run
 
-This is the migration build of OTP Grabber. It has not passed a macOS build or the
-live acceptance run below. Keep the 0.1.0 source agent and extension available until
-the native app passes every check.
+This is the migration build of OTP Grabber. CI builds the macOS app and runs its
+Swift tests, but the installed app has not passed the live acceptance run below.
+Keep the 0.1.0 source agent and extension available until the native app passes
+every check.
 
 ## Prepare Gmail
 
-1. In a Google Cloud project, enable the Gmail API and configure an OAuth consent
-   screen for the account that will use this app.
-2. Create a **Desktop app** OAuth client. Copy its client ID. The app uses a random
+1. Install the [Google Cloud CLI](https://cloud.google.com/sdk/docs/install) on a
+   machine where you can sign in to the Google account that owns the Cloud project.
+   Sign in and select an existing project. Create a project only if you need one:
+
+   ```bash
+   gcloud auth login
+   gcloud projects list
+   gcloud projects create YOUR_UNIQUE_PROJECT_ID --name="OTP Grabber"
+   gcloud config set project YOUR_UNIQUE_PROJECT_ID
+   gcloud services enable gmail.googleapis.com
+   gcloud services list --enabled --filter="name:gmail.googleapis.com"
+   ```
+
+   Skip the `projects create` command when using an existing project. `gcloud auth
+   login` still opens a browser for Google account sign-in. The remaining project
+   and API commands run in the terminal.
+2. In the [Google Auth Platform](https://console.cloud.google.com/auth/overview),
+   configure Branding, Audience, and Data Access for the account that will use the
+   app. Add `https://www.googleapis.com/auth/gmail.readonly` to Data Access. If
+   External and in Testing, add the account under test users.
+3. On the [Clients page](https://console.cloud.google.com/auth/clients), create a
+   **Desktop app** OAuth client and copy its client ID. Google's documented setup
+   for this client and the consent screen uses the Cloud Console; the `gcloud iam
+   oauth-clients` command creates a different kind of client and is not suitable
+   for Gmail desktop access. The app uses a random
    local loopback port, PKCE, and the `gmail.readonly` scope. It stores the refresh
    token in Keychain. Do not put the client secret or a token in this repository.
-3. If the consent screen is External and remains in Testing, expect refresh-token
+4. If the consent screen is External and remains in Testing, expect refresh-token
    expiry after seven days and reconnect through the app. For long-term personal
    use, review Google's publishing and restricted-scope personal-use guidance.
-4. Open the menu bar panel, choose Settings, enter the desktop client ID, and choose
+5. Open the menu bar panel, choose Settings, enter the desktop client ID, and choose
    Connect Gmail. Finish consent in the default browser.
 
 Google's [desktop OAuth guide](https://developers.google.com/identity/protocols/oauth2/native-app)
