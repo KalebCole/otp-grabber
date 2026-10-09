@@ -26,6 +26,8 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Run Python, extension, and Swift tests
         run: make test
+      - name: Build native app bundle
+        run: bash scripts/build-menubar.sh
       - name: Check shell syntax
         run: find scripts agent extension menubar -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
       - name: Check repository hygiene
