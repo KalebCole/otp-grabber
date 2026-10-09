@@ -27,18 +27,21 @@ every check.
    configure Branding, Audience, and Data Access for the account that will use the
    app. Add `https://www.googleapis.com/auth/gmail.readonly` to Data Access. If
    External and in Testing, add the account under test users.
-3. On the [Clients page](https://console.cloud.google.com/auth/clients), create a
-   **Desktop app** OAuth client and copy its client ID. Google's documented setup
-   for this client and the consent screen uses the Cloud Console; the `gcloud iam
-   oauth-clients` command creates a different kind of client and is not suitable
-   for Gmail desktop access. The app uses a random
+3. This repository's **Desktop app** OAuth client is already included in the app.
+   If using a different project or replacing that client, create a new Desktop app
+   client on the [Clients page](https://console.cloud.google.com/auth/clients) and
+   enter its ID in app Settings. Google's documented setup for this client and the
+   consent screen uses the Cloud Console; the `gcloud iam oauth-clients` command
+   creates a different kind of client and is not suitable for Gmail desktop access.
+   The app uses a random
    local loopback port, PKCE, and the `gmail.readonly` scope. It stores the refresh
    token in Keychain. Do not put the client secret or a token in this repository.
 4. If the consent screen is External and remains in Testing, expect refresh-token
    expiry after seven days and reconnect through the app. For long-term personal
    use, review Google's publishing and restricted-scope personal-use guidance.
-5. Open the menu bar panel, choose Settings, enter the desktop client ID, and choose
-   Connect Gmail. Finish consent in the default browser.
+5. Open the menu bar panel, choose Settings, and choose Connect Gmail. The app
+   includes this project's desktop client ID by default; the field remains editable
+   if the client changes. Finish consent in the default browser.
 
 Google's [desktop OAuth guide](https://developers.google.com/identity/protocols/oauth2/native-app)
 describes the loopback redirect and PKCE. The [Gmail scope list](https://developers.google.com/workspace/gmail/api/auth/scopes)

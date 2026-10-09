@@ -40,11 +40,13 @@ private final class StatusBarAppDelegate: NSObject, NSApplicationDelegate {
 
 @MainActor
 private final class PanelModel: ObservableObject {
+    private static let defaultGmailClientID = "704452847810-l2d2q73rrlaaugep1saj31njl17lnufk.apps.googleusercontent.com"
+
     @Published var headline = "Looking for a recent code…"
     @Published var detail = ""
     @Published var copied: CodeFinding?
     @Published var history: [Finding] = []
-    @Published var clientID = UserDefaults.standard.string(forKey: "gmailClientID") ?? ""
+    @Published var clientID = UserDefaults.standard.string(forKey: "gmailClientID") ?? PanelModel.defaultGmailClientID
     @Published var busy = false
     private let store = FindingsStore()
 
