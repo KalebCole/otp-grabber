@@ -272,6 +272,7 @@ private enum HistoryFilter: String, CaseIterable {
 private struct PanelView: View {
     @ObservedObject var model: PanelModel
     @State private var clientSecret = ""
+    @State private var secretPasteMessage = ""
     @State private var historyExpanded = false
     @State private var settingsExpanded = false
     @State private var filter: HistoryFilter = .all
@@ -291,7 +292,17 @@ private struct PanelView: View {
                         Text("Gmail desktop OAuth client ID").font(.caption)
                         TextField("Client ID", text: $model.clientID)
                         SecureField("Desktop OAuth client secret", text: $clientSecret)
-                        Text(model.hasClientSecret ? "Client secret saved in Keychain" : "Enter the Desktop client secret from Google Auth Platform")
+                            .onChange(of: clientSecret) { _ in secretPasteMessage = "" }
+                        Button("Paste secret from Clipboard") {
+                            if let copied = NSPasteboard.general.string(forType: .string),
+                               !copied.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                clientSecret = copied
+                                secretPasteMessage = ""
+                            } else {
+                                secretPasteMessage = "Clipboard has no text. Copy the secret and try again."
+                            }
+                        }
+                        Text(!secretPasteMessage.isEmpty ? secretPasteMessage : !clientSecret.isEmpty ? "Secret ready; choose Connect Gmail to save it" : model.hasClientSecret ? "Client secret saved in Keychain" : "Copy the Desktop client secret, then paste it here")
                             .font(.caption).foregroundStyle(.secondary)
                         HStack {
                             Button("Save") { model.saveClientID() }

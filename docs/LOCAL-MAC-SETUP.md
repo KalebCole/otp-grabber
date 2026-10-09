@@ -43,7 +43,8 @@ every check.
    expiry after seven days and reconnect through the app. For long-term personal
    use, review Google's publishing and restricted-scope personal-use guidance.
 5. Open the menu bar panel, choose Settings, paste the Desktop client secret into
-   the secure field, and choose Connect Gmail. The app includes this project's
+   the secure field (or use **Paste secret from Clipboard**), and choose Connect
+   Gmail. The app includes this project's
    desktop client ID by default; the field remains editable if the client changes.
    Finish consent in the default browser on the same Mac. The secret field can be
    left empty on later connections because the app reads it from Keychain.
