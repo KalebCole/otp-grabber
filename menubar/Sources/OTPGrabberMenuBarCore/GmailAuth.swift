@@ -5,7 +5,10 @@ import Security
 public enum GmailAuthError: Error, Equatable, Sendable {
     case missingClientID
     case signInRequired
+    case authorizationRejected
+    case missingRefreshToken
     case invalidResponse
+    case tokenRejected(Int, String)
     case keychain(OSStatus)
 }
 
@@ -141,13 +144,16 @@ public actor GmailTokenProvider {
         guard let response = response as? HTTPURLResponse else { throw GmailAuthError.invalidResponse }
         if response.statusCode == 400 || response.statusCode == 401 {
             let failure = try? JSONDecoder().decode(TokenFailure.self, from: data)
-            if failure?.error == "invalid_grant" { throw GmailAuthError.signInRequired }
-            throw GmailAuthError.invalidResponse
+            if failure?.error == "invalid_grant" {
+                if requiresRefresh { throw GmailAuthError.authorizationRejected }
+                throw GmailAuthError.signInRequired
+            }
+            throw GmailAuthError.tokenRejected(response.statusCode, failure?.error ?? "unknown")
         }
         guard (200...299).contains(response.statusCode),
               let token = try? JSONDecoder().decode(TokenResponse.self, from: data),
               !token.accessToken.isEmpty else { throw GmailAuthError.invalidResponse }
-        if requiresRefresh && (token.refreshToken?.isEmpty != false) { throw GmailAuthError.signInRequired }
+        if requiresRefresh && (token.refreshToken?.isEmpty != false) { throw GmailAuthError.missingRefreshToken }
         if let refresh = token.refreshToken { try store.save(refresh) }
         cached = (token.accessToken, Date().addingTimeInterval(TimeInterval(token.expiresIn)))
         return token.accessToken

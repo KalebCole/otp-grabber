@@ -34,7 +34,7 @@ private final class StatusBarAppDelegate: NSObject, NSApplicationDelegate {
         guard let button = item.button else { return }
         if popover.isShown { popover.performClose(nil); return }
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-        Task { await model.refresh() }
+        if !model.showingGmailResult { Task { await model.refresh() } }
     }
 }
 
@@ -47,10 +47,18 @@ private final class PanelModel: ObservableObject {
     @Published var copied: CodeFinding?
     @Published var history: [Finding] = []
     @Published var clientID = UserDefaults.standard.string(forKey: "gmailClientID") ?? PanelModel.defaultGmailClientID
+    @Published var gmailStatus = "Checking saved sign-in…"
+    @Published var connectingGmail = false
+    @Published var showingGmailResult = false
     @Published var busy = false
     private let store = FindingsStore()
 
-    init() { history = (try? store.history()) ?? [] }
+    init() {
+        history = (try? store.history()) ?? []
+        do { gmailStatus = try GmailRefreshTokenStore().load() == nil ? "Not connected" : "Sign-in saved" }
+        catch let GmailAuthError.keychain(status) { gmailStatus = "Keychain error (OSStatus \(status))" }
+        catch { gmailStatus = "Could not check saved sign-in" }
+    }
 
     func saveClientID() {
         clientID = clientID.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -60,26 +68,34 @@ private final class PanelModel: ObservableObject {
     }
 
     func connectGmail() async {
+        guard !connectingGmail else { return }
+        connectingGmail = true
+        showingGmailResult = true
+        defer { connectingGmail = false }
         saveClientID()
         do {
             let server = try OAuthCallbackServer()
             let request = try GmailOAuth.makeRequest(clientID: clientID, redirectURI: server.redirectURI)
             let provider = GmailTokenProvider(clientID: clientID)
+            gmailStatus = "Waiting for Google in this Mac's browser…"
             headline = "Complete Gmail sign-in in your browser"
-            detail = "Return here after granting read-only access."
-            NSWorkspace.shared.open(request.url)
+            detail = "Finish in a browser on this Mac, then reopen the OTP menu."
+            guard NSWorkspace.shared.open(request.url) else { throw OAuthCallbackError.browserOpenFailed }
             let code = try await server.waitForCode(expectedState: request.state)
             try await provider.connect(code: code, request: request)
+            gmailStatus = "Connected"
             headline = "Gmail connected"
             detail = "Open the panel again to look for a code."
         } catch {
+            gmailStatus = "Sign-in failed: \(Self.gmailErrorMessage(error))"
             headline = "Gmail sign-in did not finish"
-            detail = "Check the OAuth client ID and try again."
+            detail = gmailStatus
         }
     }
 
     func refresh() async {
-        guard !busy else { return }
+        guard !busy, !connectingGmail else { return }
+        showingGmailResult = false
         busy = true
         copied = nil
         headline = "Looking for a recent code…"
@@ -88,6 +104,7 @@ private final class PanelModel: ObservableObject {
         async let messages = readMessages(since: since)
         async let gmail = readGmail(since: since)
         let (messageResult, gmailResult) = await (messages, gmail)
+        if showingGmailResult { busy = false; return }
         var incoming: [Finding] = []
         var errors: [String] = []
         var sourceFailures = 0
@@ -97,9 +114,19 @@ private final class PanelModel: ObservableObject {
         case .failure: sourceFailures += 1; errors.append("Messages could not be read.")
         }
         switch gmailResult {
-        case .success(let values): incoming += values
-        case .failure(let error as GmailAuthError) where error == .signInRequired: sourceFailures += 1; errors.append("Connect Gmail in Settings.")
-        case .failure(let error as GmailReadError) where error == .signInRequired: sourceFailures += 1; errors.append("Reconnect Gmail in Settings.")
+        case .success(let values): incoming += values; gmailStatus = "Connected"
+        case .failure(let error as GmailAuthError) where error == .signInRequired:
+            sourceFailures += 1; errors.append("Connect Gmail in Settings.")
+            if gmailStatus == "Connected" || gmailStatus == "Sign-in saved" {
+                gmailStatus = "Reconnect Gmail in Settings"
+            } else if !gmailStatus.hasPrefix("Sign-in failed") {
+                gmailStatus = "Not connected"
+            }
+        case .failure(let error as GmailAuthError):
+            sourceFailures += 1; errors.append("Gmail could not be read. Try again.")
+            if case .keychain(let status) = error { gmailStatus = "Keychain error (OSStatus \(status))" }
+        case .failure(let error as GmailReadError) where error == .signInRequired:
+            sourceFailures += 1; errors.append("Reconnect Gmail in Settings."); gmailStatus = "Reconnect Gmail in Settings"
         case .failure: sourceFailures += 1; errors.append("Gmail could not be read. Try again.")
         }
         do { history = try store.save(incoming) }
@@ -144,6 +171,36 @@ private final class PanelModel: ObservableObject {
             let reader = GmailReader(token: { try await provider.accessToken() })
             return .success(try await reader.read(since: since))
         } catch { return .failure(error) }
+    }
+
+    private static func gmailErrorMessage(_ error: Error) -> String {
+        if let auth = error as? GmailAuthError {
+            switch auth {
+            case .signInRequired:
+                return "The saved sign-in expired. Try Connect Gmail again."
+            case .authorizationRejected:
+                return "Google rejected the authorization code. Try Connect Gmail again."
+            case .missingRefreshToken:
+                return "Google did not return a refresh token. Try Connect Gmail again."
+            case .tokenRejected(let status, let reason):
+                return "Google rejected the token request (\(reason), HTTP \(status))."
+            case .keychain(let status):
+                return "Keychain could not save the sign-in (OSStatus \(status))."
+            case .invalidResponse:
+                return "Google returned an unexpected token response."
+            case .missingClientID:
+                return "Enter a desktop OAuth client ID."
+            }
+        }
+        if let callback = error as? OAuthCallbackError {
+            switch callback {
+            case .listenerFailed: return "The local callback could not start."
+            case .browserOpenFailed: return "The browser could not open."
+            case .invalidCallback: return "Google returned an invalid callback."
+            case .timedOut: return "The browser did not return within three minutes."
+            }
+        }
+        return "Try again and check the browser result."
     }
 
     private func copy(_ value: String) -> Bool {
@@ -207,6 +264,7 @@ private struct PanelView: View {
                     Spacer()
                     Button("Settings") { settingsExpanded.toggle() }.buttonStyle(.plain)
                 }
+                Text("Gmail: \(model.gmailStatus)").font(.caption).foregroundStyle(.secondary)
                 if settingsExpanded {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Gmail desktop OAuth client ID").font(.caption)
@@ -214,6 +272,7 @@ private struct PanelView: View {
                         HStack {
                             Button("Save") { model.saveClientID() }
                             Button("Connect Gmail") { Task { await model.connectGmail() } }
+                                .disabled(model.connectingGmail)
                         }
                         Text("Messages needs Full Disk Access in System Settings.").font(.caption)
                     }

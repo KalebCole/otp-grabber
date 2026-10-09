@@ -3,6 +3,7 @@ import Foundation
 
 enum OAuthCallbackError: Error {
     case listenerFailed
+    case browserOpenFailed
     case invalidCallback
     case timedOut
 }
