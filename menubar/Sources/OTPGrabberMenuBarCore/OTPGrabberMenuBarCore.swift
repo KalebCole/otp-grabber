@@ -116,6 +116,18 @@ public enum ClientError: Error, Equatable, Sendable {
     case invalidResponse
 }
 
+public enum CopyCode {
+    public static func validated(_ value: String) -> String? {
+        let code = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard (4...8).contains(code.utf8.count),
+              code.utf8.contains(where: { (48...57).contains($0) }),
+              code.utf8.allSatisfy({ (48...57).contains($0) || (65...90).contains($0) || (97...122).contains($0) }) else {
+            return nil
+        }
+        return code
+    }
+}
+
 public protocol OTPClient: Sendable {
     func latest() async throws -> LatestResponse
     func archive(messageID: String) async throws
@@ -178,6 +190,7 @@ public enum MenuState: Equatable, Sendable {
     case empty
     case partial
     case offline
+    case copyError
 }
 
 @MainActor
@@ -200,12 +213,12 @@ public final class MenuBarController {
                 setState(response.errors.isEmpty ? .empty : .offline)
                 return
             }
-            guard clipboard.copy(record.code) else {
-                setState(.offline)
+            guard let code = CopyCode.validated(record.code), clipboard.copy(code) else {
+                setState(.copyError)
                 return
             }
             let warning = response.errors.first.map { "\($0.source) unavailable" }
-            setState(.success(code: record.code, source: record.source, partialWarning: warning))
+            setState(.success(code: code, source: record.source, partialWarning: warning))
             if record.source.lowercased() == "gmail" {
                 do {
                     try await client.archive(messageID: record.id)

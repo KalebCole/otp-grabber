@@ -1,101 +1,282 @@
 import AppKit
 import Foundation
 import OTPGrabberMenuBarCore
+import SwiftUI
 
 @main
 struct OTPGrabberMenuBarApp {
     static func main() {
-        let application = NSApplication.shared
-        application.setActivationPolicy(.accessory)
+        let app = NSApplication.shared
+        app.setActivationPolicy(.accessory)
         let delegate = StatusBarAppDelegate()
-        application.delegate = delegate
-        application.run()
+        app.delegate = delegate
+        app.run()
     }
 }
 
 @MainActor
-private final class StatusBarAppDelegate: NSObject, NSApplicationDelegate, ClipboardWriting {
-    private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-    private var controller: MenuBarController?
+private final class StatusBarAppDelegate: NSObject, NSApplicationDelegate {
+    private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    private let popover = NSPopover()
+    private let model = PanelModel()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        statusItem.button?.title = "OTP"
-        statusItem.button?.toolTip = "OTP Grabber"
-        rebuildMenu(state: .setup)
-        configureClient()
+        item.button?.title = "OTP"
+        item.button?.toolTip = "OTP Grabber"
+        item.button?.target = self
+        item.button?.action = #selector(toggle)
+        popover.behavior = .transient
+        popover.contentSize = NSSize(width: 360, height: 420)
+        popover.contentViewController = NSHostingController(rootView: PanelView(model: model))
     }
 
-    private func configureClient() {
+    @objc private func toggle() {
+        guard let button = item.button else { return }
+        if popover.isShown { popover.performClose(nil); return }
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        Task { await model.refresh() }
+    }
+}
+
+@MainActor
+private final class PanelModel: ObservableObject {
+    @Published var headline = "Looking for a recent code…"
+    @Published var detail = ""
+    @Published var copied: CodeFinding?
+    @Published var history: [Finding] = []
+    @Published var clientID = UserDefaults.standard.string(forKey: "gmailClientID") ?? ""
+    @Published var busy = false
+    private let store = FindingsStore()
+
+    init() { history = (try? store.history()) ?? [] }
+
+    func saveClientID() {
+        clientID = clientID.trimmingCharacters(in: .whitespacesAndNewlines)
+        UserDefaults.standard.set(clientID, forKey: "gmailClientID")
+        headline = "Gmail client ID saved"
+        detail = "Choose Connect Gmail to sign in."
+    }
+
+    func connectGmail() async {
+        saveClientID()
         do {
-            let config = try ClientConfiguration.load()
-            let controller = MenuBarController(client: APIClient(configuration: config), clipboard: self)
-            controller.onStateChange = { [weak self] state in self?.rebuildMenu(state: state) }
-            self.controller = controller
-            Task { await controller.refresh() }
+            let server = try OAuthCallbackServer()
+            let request = try GmailOAuth.makeRequest(clientID: clientID, redirectURI: server.redirectURI)
+            let provider = GmailTokenProvider(clientID: clientID)
+            headline = "Complete Gmail sign-in in your browser"
+            detail = "Return here after granting read-only access."
+            NSWorkspace.shared.open(request.url)
+            let code = try await server.waitForCode(expectedState: request.state)
+            try await provider.connect(code: code, request: request)
+            headline = "Gmail connected"
+            detail = "Open the panel again to look for a code."
         } catch {
-            rebuildMenu(state: .setup)
+            headline = "Gmail sign-in did not finish"
+            detail = "Check the OAuth client ID and try again."
         }
     }
 
-    func copy(_ text: String) -> Bool {
+    func refresh() async {
+        guard !busy else { return }
+        busy = true
+        copied = nil
+        headline = "Looking for a recent code…"
+        detail = ""
+        let since = Date().addingTimeInterval(-86_400)
+        async let messages = readMessages(since: since)
+        async let gmail = readGmail(since: since)
+        let (messageResult, gmailResult) = await (messages, gmail)
+        var incoming: [Finding] = []
+        var errors: [String] = []
+        var sourceFailures = 0
+        switch messageResult {
+        case .success(let values): incoming += values
+        case .failure(let error as MessagesReadError): sourceFailures += 1; errors.append(error.recoveryMessage)
+        case .failure: sourceFailures += 1; errors.append("Messages could not be read.")
+        }
+        switch gmailResult {
+        case .success(let values): incoming += values
+        case .failure(let error as GmailAuthError) where error == .signInRequired: sourceFailures += 1; errors.append("Connect Gmail in Settings.")
+        case .failure(let error as GmailReadError) where error == .signInRequired: sourceFailures += 1; errors.append("Reconnect Gmail in Settings.")
+        case .failure: sourceFailures += 1; errors.append("Gmail could not be read. Try again.")
+        }
+        do { history = try store.save(incoming) }
+        catch { errors.append("Recent history could not be saved.") }
+        if let code = FindingSelection.newestCode(in: incoming, now: .now) {
+            if copy(code.code) {
+                copied = code
+                headline = "Copied \(code.code)"
+                detail = "\(code.source == .gmail ? "Gmail" : "Messages") · \(code.sender) · \(Self.age(code.receivedAt))"
+            } else {
+                headline = "Could not copy this code"
+                detail = "The code or clipboard is unavailable."
+            }
+        } else {
+            headline = sourceFailures == 2 ? "Sources unavailable" : sourceFailures == 1 ? "No code from available source" : "No recent code found"
+            detail = "The clipboard was left unchanged."
+        }
+        if !errors.isEmpty { detail += "\n" + errors.joined(separator: " ") }
+        busy = false
+    }
+
+    func copyManually(_ code: CodeFinding) {
+        if copy(code.code) {
+            headline = "Copied \(code.code)"
+            detail = "\(code.source == .gmail ? "Gmail" : "Messages") · \(code.sender) · \(Self.age(code.receivedAt))"
+        } else {
+            headline = "Could not copy this code"
+            detail = "The code or clipboard is unavailable."
+        }
+    }
+
+    private func readMessages(since: Date) async -> Result<[Finding], Error> {
+        await Task.detached(priority: .userInitiated) {
+            Result { try MessagesReader().read(since: since) }
+        }.value
+    }
+
+    private func readGmail(since: Date) async -> Result<[Finding], Error> {
+        do {
+            guard !clientID.isEmpty else { throw GmailAuthError.signInRequired }
+            let provider = GmailTokenProvider(clientID: clientID)
+            let reader = GmailReader(token: { try await provider.accessToken() })
+            return .success(try await reader.read(since: since))
+        } catch { return .failure(error) }
+    }
+
+    private func copy(_ value: String) -> Bool {
+        guard let code = CopyCode.validated(value) else { return false }
         let pasteboard = NSPasteboard.general
+        var canRestore = true
+        let prior = pasteboard.pasteboardItems?.map { item -> NSPasteboardItem in
+            let snapshot = NSPasteboardItem()
+            for type in item.types {
+                guard let data = item.data(forType: type), snapshot.setData(data, forType: type) else {
+                    canRestore = false
+                    continue
+                }
+            }
+            return snapshot
+        } ?? []
+        guard canRestore else { return false }
+        let newItem = NSPasteboardItem()
+        guard newItem.setString(code, forType: .string) else { return false }
         pasteboard.clearContents()
-        return pasteboard.setString(text, forType: .string)
+        if pasteboard.writeObjects([newItem]) { return true }
+        pasteboard.clearContents()
+        if !prior.isEmpty { _ = pasteboard.writeObjects(prior) }
+        return false
     }
 
-    @objc private func refresh(_ sender: Any?) {
-        if controller == nil { configureClient() }
-        if let controller { Task { await controller.refresh() } }
+    static func age(_ date: Date) -> String {
+        let minutes = max(0, Int(Date().timeIntervalSince(date) / 60))
+        if minutes < 1 { return "Just now" }
+        if minutes < 60 { return "\(minutes) min ago" }
+        return "\(minutes / 60) hr ago"
     }
+}
 
-    @objc private func revealSettings(_ sender: Any?) {
-        let url = ClientConfiguration.defaultURL.deletingLastPathComponent()
-        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        NSWorkspace.shared.activateFileViewerSelecting([ClientConfiguration.defaultURL])
-    }
+private enum HistoryFilter: String, CaseIterable {
+    case all = "All"
+    case gmail = "Gmail"
+    case messages = "Messages"
 
-    @objc private func quit(_ sender: Any?) {
-        NSApp.terminate(nil)
-    }
-
-    private func rebuildMenu(state: MenuState) {
-        let menu = NSMenu()
-        let headline: String
-        let detail: String?
-        switch state {
-        case .setup:
-            headline = "Set up OTP Grabber"
-            detail = "Add client.json to connect to your source agent."
-        case .loading:
-            headline = "Looking for a recent code…"
-            detail = nil
-        case let .success(code, source, warning):
-            headline = "Copied \(code)"
-            detail = "From \(source.capitalized)" + (warning.map { " — \($0)" } ?? "")
-        case .empty:
-            headline = "No recent code found"
-            detail = "Choose Refresh to try again."
-        case .partial:
-            headline = "Some sources are unavailable"
-            detail = "Refresh to try again."
-        case .offline:
-            headline = "Source agent is offline"
-            detail = "Check your tailnet connection or setup."
+    func includes(_ finding: Finding) -> Bool {
+        switch self {
+        case .all: true
+        case .gmail: finding.source == .gmail
+        case .messages: finding.source == .messages
         }
-        let title = NSMenuItem(title: headline, action: nil, keyEquivalent: "")
-        title.isEnabled = false
-        menu.addItem(title)
-        if let detail {
-            let subtitle = NSMenuItem(title: detail, action: nil, keyEquivalent: "")
-            subtitle.isEnabled = false
-            menu.addItem(subtitle)
+    }
+}
+
+private struct PanelView: View {
+    @ObservedObject var model: PanelModel
+    @State private var historyExpanded = false
+    @State private var settingsExpanded = false
+    @State private var filter: HistoryFilter = .all
+    private var visible: [Finding] { model.history.filter(filter.includes) }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Text("OTP Grabber").font(.headline)
+                    Spacer()
+                    Button("Settings") { settingsExpanded.toggle() }.buttonStyle(.plain)
+                }
+                if settingsExpanded {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Gmail desktop OAuth client ID").font(.caption)
+                        TextField("Client ID", text: $model.clientID)
+                        HStack {
+                            Button("Save") { model.saveClientID() }
+                            Button("Connect Gmail") { Task { await model.connectGmail() } }
+                        }
+                        Text("Messages needs Full Disk Access in System Settings.").font(.caption)
+                    }
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(model.headline).font(.title3).fontWeight(.semibold)
+                    if !model.detail.isEmpty { Text(model.detail).font(.caption).foregroundStyle(.secondary) }
+                    if let copied = model.copied, let url = copied.gmailURL {
+                        Button("Open in Gmail") { NSWorkspace.shared.open(url) }
+                    }
+                }
+                HStack {
+                    Button("Refresh") { Task { await model.refresh() } }.disabled(model.busy)
+                    Spacer()
+                    Button(historyExpanded ? "Hide history" : "History") { historyExpanded.toggle() }
+                }
+                if historyExpanded {
+                    Text("Last 24 hours").font(.caption).foregroundStyle(.secondary)
+                    HStack(spacing: 4) {
+                        ForEach(HistoryFilter.allCases, id: \.self) { item in
+                            Button(item.rawValue) { filter = item }
+                                .frame(maxWidth: .infinity, minHeight: 36)
+                                .background(filter == item ? Color.green.opacity(0.2) : Color.gray.opacity(0.1))
+                                .cornerRadius(8)
+                                .accessibilityValue(filter == item ? "Selected" : "Not selected")
+                        }
+                    }
+                    if visible.isEmpty {
+                        Text("No \(filter == .all ? "" : filter.rawValue + " ")findings in the last 24 hours.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    ForEach(visible) { finding in
+                        VStack(alignment: .leading, spacing: 7) {
+                            switch finding {
+                            case .code(let code):
+                                HStack {
+                                    Text(code.source == .gmail ? "Gmail" : "Messages").fontWeight(.semibold)
+                                    Spacer()
+                                    Text(PanelModel.age(code.receivedAt))
+                                }.font(.caption)
+                                Text(code.sender).font(.caption).lineLimit(1)
+                                Text(code.code).font(.system(.title3, design: .monospaced)).fontWeight(.bold)
+                                HStack {
+                                    Button("Copy") { model.copyManually(code) }
+                                    if let url = code.gmailURL { Button("Open in Gmail") { NSWorkspace.shared.open(url) } }
+                                }
+                            case .resetLink(let link):
+                                HStack {
+                                    Text("Gmail · Password reset").fontWeight(.semibold)
+                                    Spacer()
+                                    Text(PanelModel.age(link.receivedAt))
+                                }.font(.caption)
+                                Text(link.sender).font(.caption).lineLimit(1)
+                                Text(link.destinationDomain).font(.caption)
+                                Button("Open reset link") { NSWorkspace.shared.open(link.url) }
+                            }
+                        }
+                        .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.gray.opacity(0.08)).cornerRadius(10)
+                    }
+                }
+                Button("Quit OTP Grabber") { NSApp.terminate(nil) }.font(.caption)
+            }
+            .padding(18)
         }
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "Refresh", action: #selector(refresh(_:)), keyEquivalent: "r").target = self
-        menu.addItem(withTitle: "Reveal Settings", action: #selector(revealSettings(_:)), keyEquivalent: ",").target = self
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit OTP Grabber", action: #selector(quit(_:)), keyEquivalent: "q").target = self
-        statusItem.menu = menu
-        statusItem.button?.title = state == .loading ? "OTP…" : "OTP"
+        .frame(width: 360, height: 420)
     }
 }

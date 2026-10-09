@@ -4,6 +4,12 @@ All notable changes appear here. This project follows [Semantic Versioning](http
 
 ## [Unreleased]
 
+### In progress
+
+- Added a local Swift source reader, OAuth and Keychain groundwork, a menu bar panel,
+  and private one-day finding history. The native migration awaits macOS build and
+  live acceptance before replacing the 0.1.0 release path.
+
 ## [0.1.0] - 2026-08-02
 
 ### Added

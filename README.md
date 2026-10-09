@@ -1,5 +1,9 @@
 # OTP Grabber
 
+> A local macOS replacement is in progress. Its Swift source is not yet verified on
+> the target Mac. The 0.1.0 release and the setup below describe the current
+> supported build. See [local Mac setup and acceptance](docs/LOCAL-MAC-SETUP.md).
+
 **The fresh verification code, already copied.**
 
 OTP Grabber watches Gmail and Messages on a trusted Mac, then hands the newest code to Chrome or a macOS menu-bar app over your private Tailscale network. The client copies first. Gmail archives only after clipboard success.
