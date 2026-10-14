@@ -49,6 +49,23 @@ every check.
    Finish consent in the default browser on the same Mac. The secret field can be
    left empty on later connections because the app reads it from Keychain.
 
+   To skip the app's secret field, save the secret directly to the Mac's Keychain
+   from Terminal. After copying only the secret value, run:
+
+   ```bash
+   cd "$HOME/Developer/otp-grabber-macos"
+   swift scripts/import-gmail-client-secret.swift --clipboard
+   ```
+
+   If you have Google's downloaded Desktop client JSON file, use
+   `swift scripts/import-gmail-client-secret.swift --file "/path/to/client_secret.json"`
+   instead. The importer checks that the JSON client ID matches the app's saved
+   client ID. Neither command prints the secret. The clipboard command clears the
+   copied value after saving it if the clipboard has not changed. Then choose
+   **Connect Gmail** in the app and complete consent in the browser on the same
+   Mac. If macOS asks whether OTP Grabber may access the saved Keychain item,
+   allow it.
+
 Google's [desktop OAuth guide](https://developers.google.com/identity/protocols/oauth2/native-app)
 describes the loopback redirect and PKCE. The [Gmail scope list](https://developers.google.com/workspace/gmail/api/auth/scopes)
 classifies `gmail.readonly` as restricted.
