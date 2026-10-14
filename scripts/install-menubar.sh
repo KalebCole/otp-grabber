@@ -3,6 +3,7 @@ set -euo pipefail
 
 APP_SOURCE="${1:-$(cd "$(dirname "$0")/.." && pwd)/dist/OTP Grabber.app}"
 APP_DEST="$HOME/Applications/OTP Grabber.app"
+APP_EXEC="$APP_DEST/Contents/MacOS/OTPGrabberMenuBar"
 PLIST="$HOME/Library/LaunchAgents/com.otpgrabber.menubar.plist"
 LABEL="com.otpgrabber.menubar"
 UID_VALUE="$(id -u)"
@@ -14,6 +15,18 @@ if [[ ! -d "$APP_SOURCE" ]]; then
 fi
 
 mkdir -p "$HOME/Applications" "$HOME/Library/LaunchAgents"
+launchctl bootout "gui/$UID_VALUE" "$PLIST" 2>/dev/null || true
+if pgrep -f -u "$UID_VALUE" "$APP_EXEC" >/dev/null; then
+  pkill -f -u "$UID_VALUE" "$APP_EXEC"
+  for _ in {1..20}; do
+    if ! pgrep -f -u "$UID_VALUE" "$APP_EXEC" >/dev/null; then break; fi
+    sleep 0.25
+  done
+  if pgrep -f -u "$UID_VALUE" "$APP_EXEC" >/dev/null; then
+    echo "OTP Grabber did not quit; close it before installing the update." >&2
+    exit 1
+  fi
+fi
 rm -rf "$APP_DEST"
 /usr/bin/ditto "$APP_SOURCE" "$APP_DEST"
 cat > "$PLIST" <<PLIST_XML
@@ -28,6 +41,5 @@ cat > "$PLIST" <<PLIST_XML
 PLIST_XML
 chmod 644 "$PLIST"
 /usr/bin/plutil -lint "$PLIST"
-launchctl bootout "gui/$UID_VALUE" "$PLIST" 2>/dev/null || true
 launchctl bootstrap "gui/$UID_VALUE" "$PLIST"
 printf 'Installed %s and registered %s for launch at login.\n' "$APP_DEST" "$LABEL"

@@ -104,8 +104,8 @@ reset links in the evidence. Check each item on the installed app:
 - [ ] One source failing does not hide a valid code from the other. Full Disk Access,
       offline, and sign-in failures show useful recovery text.
 - [ ] A Gmail code's **Open in Gmail** action opens the exact source email in the
-      connected account. Test a message inside a multi-message thread. The current
-      URL is based on the Gmail thread ID and is not yet verified for that case.
+      connected account. Test a message inside a multi-message thread. The link
+      uses the source message ID; its behavior still needs live confirmation.
 - [ ] Copy and browser actions leave Gmail labels, including Inbox, unchanged.
 - [ ] A reset card shows sender and HTTPS destination domain. Its link opens only
       after **Open reset link** is clicked.

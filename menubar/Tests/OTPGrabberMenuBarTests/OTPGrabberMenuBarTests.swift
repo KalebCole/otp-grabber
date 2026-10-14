@@ -54,7 +54,7 @@ struct OTPGrabberMenuBarTests {
         let message = try JSONDecoder().decode(GmailMessage.self, from: Data(json.utf8))
         let findings = GmailReader.findings(in: message, since: Date(timeIntervalSince1970: 0), accountEmail: "one@example.test")
         #expect(findings.count == 2)
-        #expect(findings.contains { if case .code(let code) = $0 { return code.code == "A1B2C3" && code.gmailURL?.absoluteString.contains("thread-1") == true }; return false })
+        #expect(findings.contains { if case .code(let code) = $0 { return code.code == "A1B2C3" && code.gmailURL?.fragment == "all/gmail-1" }; return false })
         #expect(findings.contains { if case .resetLink(let link) = $0 { return link.destinationDomain == "accounts.example.test" && link.url.query?.contains("&nonce=xyz") == true }; return false })
     }
 

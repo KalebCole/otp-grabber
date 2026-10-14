@@ -20,19 +20,30 @@ public struct GmailReader: Sendable {
         let accessToken = try await token()
         let profile: GmailProfile = try await get(URL(string: "https://gmail.googleapis.com/gmail/v1/users/me/profile")!, token: accessToken)
         var components = URLComponents(string: "https://gmail.googleapis.com/gmail/v1/users/me/messages")!
-        components.queryItems = [
-            URLQueryItem(name: "maxResults", value: "50"),
+        let query = [
+            URLQueryItem(name: "maxResults", value: "100"),
             URLQueryItem(name: "q", value: "after:\(Int(since.timeIntervalSince1970)) in:anywhere (verification OR passcode OR OTP OR \"one-time\" OR \"sign-in code\" OR \"security code\" OR \"password reset\" OR \"reset your password\")"),
         ]
-        let listing: MessageList = try await get(components.url!, token: accessToken)
         var findings: [Finding] = []
-        for summary in listing.messages ?? [] {
-            guard !summary.id.isEmpty else { continue }
-            let encoded = summary.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? summary.id
-            let url = URL(string: "https://gmail.googleapis.com/gmail/v1/users/me/messages/\(encoded)?format=full")!
-            let message: GmailMessage = try await get(url, token: accessToken)
-            findings.append(contentsOf: Self.findings(in: message, since: since, accountEmail: profile.emailAddress))
-        }
+        var nextPageToken: String?
+        var seenPageTokens = Set<String>()
+        repeat {
+            components.queryItems = query + (nextPageToken.map { [URLQueryItem(name: "pageToken", value: $0)] } ?? [])
+            let listing: MessageList = try await get(components.url!, token: accessToken)
+            for summary in listing.messages ?? [] {
+                guard !summary.id.isEmpty else { continue }
+                let encoded = summary.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? summary.id
+                let url = URL(string: "https://gmail.googleapis.com/gmail/v1/users/me/messages/\(encoded)?format=full")!
+                let message: GmailMessage = try await get(url, token: accessToken)
+                findings.append(contentsOf: Self.findings(in: message, since: since, accountEmail: profile.emailAddress))
+            }
+            nextPageToken = listing.nextPageToken
+            if let nextPageToken, !nextPageToken.isEmpty {
+                guard seenPageTokens.insert(nextPageToken).inserted else { throw GmailReadError.invalidResponse }
+            } else {
+                nextPageToken = nil
+            }
+        } while nextPageToken != nil
         return FindingSelection.deduplicated(findings)
     }
 
@@ -58,13 +69,10 @@ public struct GmailReader: Sendable {
         let subject = headers["subject"] ?? ""
         let body = payload.readableText
         var findings: [Finding] = []
-        var gmailLink: URL?
-        if let threadID = message.threadId, !threadID.isEmpty {
-            var link = URLComponents(string: "https://mail.google.com/mail/")!
-            link.queryItems = [URLQueryItem(name: "authuser", value: accountEmail)]
-            link.fragment = "all/\(threadID)"
-            gmailLink = link.url
-        }
+        var link = URLComponents(string: "https://mail.google.com/mail/")!
+        link.queryItems = [URLQueryItem(name: "authuser", value: accountEmail)]
+        link.fragment = "all/\(message.id)"
+        let gmailLink = link.url
         if let code = FindingExtractor.code(subject: subject, body: body),
            let finding = CodeFinding(source: .gmail, messageID: message.id, sender: sender, receivedAt: receivedAt, code: code, gmailURL: gmailLink) {
             findings.append(.code(finding))
@@ -79,6 +87,7 @@ public struct GmailReader: Sendable {
 
 struct MessageList: Decodable {
     let messages: [MessageSummary]?
+    let nextPageToken: String?
 }
 
 struct GmailProfile: Decodable {
