@@ -20,7 +20,6 @@ test-swift:
 
 check:
 	bash scripts/check-repository.sh
-	node .github/skills/impeccable/scripts/detect.mjs docs/ --json
 
 package:
 	scripts/package-release.sh

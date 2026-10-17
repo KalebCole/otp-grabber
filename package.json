@@ -4,9 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "npm run test:extension && npm run test:web",
-    "test:extension": "node --test extension/tests/*.test.js",
-    "test:web": "node --test scripts/test-web.mjs"
+    "test": "npm run test:extension",
+    "test:extension": "node --test extension/tests/*.test.js"
   },
   "devDependencies": {},
   "engines": {

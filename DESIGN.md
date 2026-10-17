@@ -1,5 +1,8 @@
 # OTP Grabber Design System
 
+> Historical design notes for the legacy extension and retired landing page.
+> See [README.md](README.md) for the current native Mac app.
+
 ## Direction
 
 Calm Card. A focused utility that feels native beside macOS, not a miniature admin dashboard.
