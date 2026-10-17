@@ -85,11 +85,24 @@ classifies `gmail.readonly` as restricted.
 swift test --package-path menubar
 swift run --package-path menubar OTPGrabberMenuBarChecks
 scripts/build-menubar.sh
-scripts/install-menubar.sh
+scripts/install-menubar.sh --development
 ```
 
-The current build script uses ad-hoc signing. A stable Developer ID signature and
-notarization still need to be set up before distributing the native app.
+Development builds are ad hoc signed and may need a new Full Disk Access grant
+after each update. For personal GitHub releases, follow
+[personal release signing](../signing/README.md) once, then use the signed
+release artifact with `scripts/install-menubar.sh "/path/to/OTP Grabber.app"`.
+The installer validates the pinned signature and installs at
+`~/Applications/OTP Grabber.app`. Self-signed builds are not notarized and may
+require **Open Anyway** on a Mac that downloads them.
+
+For issue #9's update check, record the macOS version, installed path, app
+version, certificate fingerprint, designated requirement, and only the Messages
+read result (`success`, `denied`, or `other`) before and after an update. Do not
+touch the Full Disk Access setting between reads or record message contents,
+senders, or codes. The first move away from ad hoc signing may require one new
+grant; test retention between two subsequent releases signed with the same
+identity. See [the research and check procedure](research/2026-10-16-issue-9-full-disk-access-updates.md).
 
 ## Live acceptance record
 

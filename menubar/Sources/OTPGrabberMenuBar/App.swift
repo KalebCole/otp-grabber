@@ -52,6 +52,7 @@ private final class PanelModel: ObservableObject {
     @Published var connectingGmail = false
     @Published var showingGmailResult = false
     @Published var busy = false
+    @Published var messagesAccessDenied = false
     private let store = FindingsStore()
 
     init() {
@@ -111,6 +112,7 @@ private final class PanelModel: ObservableObject {
         guard !busy, !connectingGmail else { return }
         showingGmailResult = false
         busy = true
+        messagesAccessDenied = false
         copied = nil
         headline = "Looking for a recent code…"
         detail = ""
@@ -124,7 +126,10 @@ private final class PanelModel: ObservableObject {
         var sourceFailures = 0
         switch messageResult {
         case .success(let values): incoming += values
-        case .failure(let error as MessagesReadError): sourceFailures += 1; errors.append(error.recoveryMessage)
+        case .failure(let error as MessagesReadError):
+            sourceFailures += 1
+            messagesAccessDenied = error == .accessDenied
+            errors.append(error.recoveryMessage)
         case .failure: sourceFailures += 1; errors.append("Messages could not be read.")
         }
         switch gmailResult {
@@ -285,6 +290,15 @@ private struct PanelView: View {
                     Text("OTP Grabber").font(.headline)
                     Spacer()
                     Button("Settings") { settingsExpanded.toggle() }.buttonStyle(.plain)
+                    Button { NSApp.terminate(nil) } label: {
+                        Image(systemName: "xmark")
+                            .frame(width: 36, height: 36)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .help("Quit OTP Grabber")
+                    .accessibilityLabel("Quit OTP Grabber")
                 }
                 Text("Gmail: \(model.gmailStatus)").font(.caption).foregroundStyle(.secondary)
                 if settingsExpanded {
@@ -319,6 +333,13 @@ private struct PanelView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(model.headline).font(.title3).fontWeight(.semibold)
                     if !model.detail.isEmpty { Text(model.detail).font(.caption).foregroundStyle(.secondary) }
+                    if model.messagesAccessDenied {
+                        Button("Open Full Disk Access Settings") {
+                            if let url = URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_AllFiles") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                    }
                     if let copied = model.copied, let url = copied.gmailURL {
                         Button("Open in Gmail") { NSWorkspace.shared.open(url) }
                     }
@@ -373,7 +394,6 @@ private struct PanelView: View {
                         .background(Color.gray.opacity(0.08)).cornerRadius(10)
                     }
                 }
-                Button("Quit OTP Grabber") { NSApp.terminate(nil) }.font(.caption)
             }
             .padding(18)
         }

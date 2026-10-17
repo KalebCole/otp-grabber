@@ -11,7 +11,7 @@ public enum MessagesReadError: Error, Equatable, Sendable {
     public var recoveryMessage: String {
         switch self {
         case .accessDenied:
-            "Give OTP Grabber Full Disk Access in System Settings, then reopen the app."
+            "Open System Settings → Privacy & Security → Full Disk Access. Enable OTP Grabber in ~/Applications (or remove and re-add it), then quit and reopen the app."
         case .unavailable:
             "Messages has no local database on this Mac yet. Open Messages and try again."
         case .schemaChanged:
