@@ -27,7 +27,9 @@ private final class StatusBarAppDelegate: NSObject, NSApplicationDelegate {
         item.button?.action = #selector(toggle)
         popover.behavior = .transient
         popover.contentSize = NSSize(width: 360, height: 420)
-        popover.contentViewController = NSHostingController(rootView: PanelView(model: model))
+        popover.contentViewController = NSHostingController(rootView: PanelView(model: model) { [weak self] in
+            self?.popover.performClose(nil)
+        })
     }
 
     @objc private func toggle() {
@@ -276,10 +278,12 @@ private enum HistoryFilter: String, CaseIterable {
 
 private struct PanelView: View {
     @ObservedObject var model: PanelModel
+    let onClose: () -> Void
     @State private var clientSecret = ""
     @State private var secretPasteMessage = ""
     @State private var historyExpanded = false
     @State private var settingsExpanded = false
+    @State private var closeHovered = false
     @State private var filter: HistoryFilter = .all
     private var visible: [Finding] { model.history.filter(filter.includes) }
 
@@ -290,15 +294,16 @@ private struct PanelView: View {
                     Text("OTP Grabber").font(.headline)
                     Spacer()
                     Button("Settings") { settingsExpanded.toggle() }.buttonStyle(.plain)
-                    Button { NSApp.terminate(nil) } label: {
-                        Image(systemName: "xmark")
+                    Button(action: onClose) {
+                        Image(systemName: closeHovered ? "xmark.circle.fill" : "xmark")
                             .frame(width: 36, height: 36)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
-                    .help("Quit OTP Grabber")
-                    .accessibilityLabel("Quit OTP Grabber")
+                    .onHover { closeHovered = $0 }
+                    .help("Close panel")
+                    .accessibilityLabel("Close OTP Grabber panel")
                 }
                 Text("Gmail: \(model.gmailStatus)").font(.caption).foregroundStyle(.secondary)
                 if settingsExpanded {
@@ -328,6 +333,8 @@ private struct PanelView: View {
                                 .disabled(model.connectingGmail)
                         }
                         Text("Messages needs Full Disk Access in System Settings.").font(.caption)
+                        Divider()
+                        Button("Quit OTP Grabber") { NSApp.terminate(nil) }
                     }
                 }
                 VStack(alignment: .leading, spacing: 8) {
