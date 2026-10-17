@@ -1,5 +1,9 @@
 # OTP Grabber v2 Implementation Plan
 
+> This plan describes the retired remote agent, Chrome extension, and Pages site.
+> Their implementation has been removed from the current repository. Use the
+> [README](../../README.md) for the supported native Mac app.
+
 > **For Hermes:** Use subagent-driven development or an autonomous coding agent to implement this plan task by task. Enforce failing-test-first for behavior code and retain command output as evidence.
 
 **Goal:** Ship a public, reusable macOS verification-code utility with a tailnet-only Apple source agent, Calm Card Chrome extension, native menu-bar app, and Impeccable-built GitHub Pages installer site.

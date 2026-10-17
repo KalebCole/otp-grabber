@@ -1,5 +1,8 @@
 # Local macOS OTP Grabber spec and plan
 
+> The native app now ships. The remote agent and extension described below have
+> been removed. Use the [README](../../README.md) for current setup.
+
 ## Product decision
 
 Build one personal macOS menu bar app. Opening its panel checks Gmail and Messages, then copies the newest received verification code if it arrived within the last **five minutes**. Show which source and sender supplied it, its age, and a clear copied or error state. A Gmail code also has an **Open in Gmail** action that opens its source message in the browser. If neither source has an eligible code, leave the clipboard unchanged.

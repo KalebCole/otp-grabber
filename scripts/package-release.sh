@@ -14,11 +14,6 @@ VERSION="${VERSION#v}"
 rm -rf "$DIST"
 mkdir -p "$DIST"
 
-(
-  cd "$ROOT/extension"
-  /usr/bin/zip -qry "$DIST/otp-grabber-chrome-${VERSION}.zip" .
-)
-
 DIST_DIR="$DIST" VERSION="$VERSION" SIGNING_MODE=release "$ROOT/scripts/build-menubar.sh"
 "$ROOT/scripts/verify-menubar-signature.sh" "$DIST/OTP Grabber.app" --release
 

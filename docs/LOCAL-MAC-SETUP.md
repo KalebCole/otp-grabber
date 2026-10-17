@@ -1,10 +1,9 @@
 # Local macOS app setup and acceptance run
 
-This is the native macOS migration build of OTP Grabber. CI builds it and runs
-its Swift tests. On the target Mac, the app has read fresh Messages codes across
-two signed releases without changing Full Disk Access. Gmail and the remaining
-live acceptance checks below still need confirmation. Keep the 0.1.0 source
-agent and extension available until those checks pass.
+CI builds the native macOS app and runs its Swift tests. On the target Mac, the
+app has read fresh Messages codes across two signed releases without changing
+Full Disk Access. Gmail and the remaining live acceptance checks below still
+need confirmation.
 
 ## Prepare Gmail
 
@@ -84,7 +83,6 @@ classifies `gmail.readonly` as restricted.
 
 ```bash
 swift test --package-path menubar
-swift run --package-path menubar OTPGrabberMenuBarChecks
 scripts/build-menubar.sh
 scripts/install-menubar.sh --development
 ```
@@ -128,5 +126,4 @@ reset links in the evidence. Check each item on the installed app:
 - [ ] At normal Mac display scaling, the three history filters have equal widths,
       at least 36-point height, no clipping, keyboard focus, and an announced
       selected state.
-- [ ] Launch at login works and the installed app needs no Python, Chrome extension,
-      HTTP source server, or Tailscale process.
+- [ ] Launch at login works.
