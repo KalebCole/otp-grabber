@@ -1,1 +1,0 @@
-"""Verification-code source adapters."""

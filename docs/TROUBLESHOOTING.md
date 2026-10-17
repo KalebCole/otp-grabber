@@ -1,85 +1,36 @@
 # Troubleshooting
 
-## Native macOS app
-
-The signed app installs at `~/Applications/OTP Grabber.app`. If it does not
-appear in the menu bar, check that it is installed and the login launch agent
-exists at `~/Library/LaunchAgents/com.otpgrabber.menubar.plist`; reinstall with
+The signed app installs at `~/Applications/OTP Grabber.app`. If its icon does
+not appear in the menu bar, check that the app is installed and that its login
+launch agent exists at
+`~/Library/LaunchAgents/com.otpgrabber.menubar.plist`. Reinstall with
 `scripts/install-menubar.sh "/path/to/extracted/OTP Grabber.app"` if needed.
 
-For Messages access, enable that installed app in **System Settings → Privacy
-& Security → Full Disk Access**, then quit and reopen it. For Gmail connection
-or a Keychain password prompt, use the app's Settings and the
-[native setup guide](LOCAL-MAC-SETUP.md). The reported Keychain dependency is
-tracked in [issue #20](https://github.com/KalebCole/otp-grabber/issues/20).
-The native app does not use the Python source agent, Tailscale, or
-`client.json`.
+## Messages access is denied
 
-## Legacy source agent and Chrome extension
+Enable the installed `~/Applications/OTP Grabber.app` in **System Settings →
+Privacy & Security → Full Disk Access**, then quit and reopen it. Grant access
+to this installed copy, since moving or replacing a differently signed app can
+require a new grant. The app reads the local Messages database without changing
+it.
 
-## Source agent is offline
+## Gmail is not connected
 
-1. Check launchd:
-   ```bash
-   launchctl print "gui/$(id -u)/com.otpgrabber.agent"
-   ```
-2. Check logs:
-   ```bash
-   tail -n 100 "$HOME/Library/Logs/OTP Grabber/agent.err.log"
-   ```
-3. Test the loopback endpoint with the token from `~/Library/Application Support/OTP Grabber/agent.json`:
-   ```bash
-   TOKEN="$(python3 -c 'import json,os; print(json.load(open(os.path.expanduser("~/Library/Application Support/OTP Grabber/agent.json")))["token"])')"
-   curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8877/v1/health
-   unset TOKEN
-   ```
+Open the app's **Settings** and follow [Gmail setup](LOCAL-MAC-SETUP.md#prepare-gmail).
+The app uses a read-only Gmail OAuth connection. If a Keychain password prompt
+appears, see [issue #20](https://github.com/KalebCole/otp-grabber/issues/20).
 
-Do not paste the token into an issue or shared shell history.
+## A downloaded app is blocked by macOS
 
-## Gmail source unavailable
+These personal releases are self-signed and not notarized. For a release you
+trust, use **System Settings → Privacy & Security → Open Anyway**. Install it
+at the same path with `scripts/install-menubar.sh`; the installer checks the
+pinned signer before replacing the existing app.
 
-- Confirm `gws` is installed and authenticated for Gmail.
-- Run a harmless `gws gmail users messages list` request in the same account.
-- Keep `GOOGLE_WORKSPACE_CLI_KEYRING_BACKEND=file` when launchd cannot access the interactive keychain backend.
-- Reauthenticate `gws` if it reports `invalid_grant` or an expired token.
+## No recent code appears
 
-## Messages source unavailable
-
-Grant Full Disk Access to the Python executable used by the LaunchAgent, then restart the agent. The source reads `~/Library/Messages/chat.db` and does not modify it.
-
-## Tailscale URL does not respond
-
-```bash
-tailscale serve status
-scripts/serve-tailnet.sh --port 8877
-```
-
-Confirm both Macs are online in the same tailnet. OTP Grabber does not support Tailscale Funnel or another public proxy.
-
-## Chrome rejects the private origin
-
-- Use the origin only, for example `https://source-device.example-tailnet.ts.net:8877`.
-- Do not include `/v1/latest`, credentials, a query, or a fragment.
-- When Chrome prompts, allow the extension to reach that exact private origin.
-- If the permission was removed, save settings again to request it.
-
-## Code appears but was not copied
-
-The code remains selectable in the Calm Card. macOS or Chrome may block clipboard writes when the popup is not active. Reopen the extension or choose Refresh in the menu-bar app.
-
-## Gmail message stayed in Inbox
-
-Copying succeeded before archive was attempted. The client leaves the code visible and reports that archive will retry. Reopen the client after the source connection recovers.
-
-## Legacy 0.1.0 menu-bar app shows setup
-
-Create `~/Library/Application Support/OTP Grabber/client.json` with mode `600`:
-
-```json
-{
-  "server_url": "https://source-device.example-tailnet.ts.net:8877",
-  "token": "paste-the-source-agent-token"
-}
-```
-
-Then quit and reopen OTP Grabber.
+Try a fresh verification message, then open the menu bar panel again. A code
+older than five minutes is not eligible for automatic copying. If one source
+is unavailable, the panel should show a recovery message while still using
+results from the other source. See the [live acceptance checklist](LOCAL-MAC-SETUP.md#live-acceptance-record)
+for behavior that still needs confirmation on the target Mac.

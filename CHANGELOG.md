@@ -4,13 +4,23 @@ All notable changes appear here. This project follows [Semantic Versioning](http
 
 ## [Unreleased]
 
-### In progress
+### Changed
 
-- Added a local Swift source reader, OAuth and Keychain groundwork, a menu bar panel,
-  and private one-day finding history. The native migration awaits macOS build and
-  live acceptance before replacing the 0.1.0 release path.
+- Removed the retired Python source agent, Chrome extension, remote setup scripts,
+  and Chrome release artifact. Releases now contain the native macOS app and
+  source archive.
+- Native app tests and build are the only release verification path.
+
+### Known limits
+
+- Gmail code copying and the remaining live acceptance checks on the target Mac
+  have not been confirmed.
 
 ## [0.1.0] - 2026-08-02
+
+Historical release; its Python agent, Chrome extension, and remote setup were
+removed from the current repository after the native Mac app became the sole
+supported path.
 
 ### Added
 

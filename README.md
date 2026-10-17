@@ -2,8 +2,7 @@
 
 OTP Grabber is a native macOS menu bar app that finds recent verification codes
 in Gmail and Messages on the same Mac, copies the newest eligible code, and
-keeps one day of local history. The older Python agent and Chrome extension
-remain available as a [legacy remote setup](#legacy-remote-setup).
+keeps one day of local history.
 
 [Latest release](https://github.com/KalebCole/otp-grabber/releases/latest) ·
 [Local Mac setup](docs/LOCAL-MAC-SETUP.md) ·
@@ -41,8 +40,7 @@ Messages and Gmail:
    read-only Gmail OAuth connection. Gmail requires separate Google project
    setup; Messages can be used without connecting Gmail.
 
-The native app runs locally. It does not need the Python agent, Chrome
-extension, `client.json`, or Tailscale.
+The native app runs locally on this Mac.
 
 ## Update
 
@@ -71,41 +69,12 @@ Release maintainers can read [personal release signing](signing/README.md).
 - These releases are intended for personal use on your Macs and do not have an
   Apple Developer ID signature or notarization.
 
-## Legacy remote setup
-
-The older Python source agent and Chrome extension are still in the repository
-for a separate remote handoff over private Tailscale Serve. Use this path only
-if you need that older setup. It is not part of native app installation.
-
-On the Mac that owns Gmail and Messages access:
-
-```bash
-git clone https://github.com/KalebCole/otp-grabber.git
-cd otp-grabber
-PYTHON_BIN="$(command -v python3.11)" scripts/install-agent.sh
-scripts/serve-tailnet.sh --port 8877
-```
-
-This requires Python 3.11+, authenticated `gws`, Full Disk Access for that
-Python executable, and Tailscale with HTTPS certificates enabled. The agent
-creates a private token in
-`~/Library/Application Support/OTP Grabber/agent.json`.
-
-Download `otp-grabber-chrome-*.zip` from a
-[release](https://github.com/KalebCole/otp-grabber/releases), extract it, then
-open `chrome://extensions`. Enable Developer mode, choose **Load unpacked**,
-and select the extension directory. In **Connection settings**, enter the
-private Tailscale HTTPS origin and source-agent token. See the
-[architecture](docs/ARCHITECTURE.md) and [troubleshooting](docs/TROUBLESHOOTING.md)
-for this legacy path.
-
 ## Develop
 
-On macOS with Python 3.11, Node 20, and Swift installed:
+On macOS with Swift installed:
 
 ```bash
-npm ci
-PYTHON=python3.11 make test
+make test
 make check
 scripts/build-menubar.sh
 ```
