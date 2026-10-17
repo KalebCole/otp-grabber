@@ -1,5 +1,22 @@
 # Troubleshooting
 
+## Native macOS app
+
+The signed app installs at `~/Applications/OTP Grabber.app`. If it does not
+appear in the menu bar, check that it is installed and the login launch agent
+exists at `~/Library/LaunchAgents/com.otpgrabber.menubar.plist`; reinstall with
+`scripts/install-menubar.sh "/path/to/extracted/OTP Grabber.app"` if needed.
+
+For Messages access, enable that installed app in **System Settings → Privacy
+& Security → Full Disk Access**, then quit and reopen it. For Gmail connection
+or a Keychain password prompt, use the app's Settings and the
+[native setup guide](LOCAL-MAC-SETUP.md). The reported Keychain dependency is
+tracked in [issue #20](https://github.com/KalebCole/otp-grabber/issues/20).
+The native app does not use the Python source agent, Tailscale, or
+`client.json`.
+
+## Legacy source agent and Chrome extension
+
 ## Source agent is offline
 
 1. Check launchd:
@@ -54,7 +71,7 @@ The code remains selectable in the Calm Card. macOS or Chrome may block clipboar
 
 Copying succeeded before archive was attempted. The client leaves the code visible and reports that archive will retry. Reopen the client after the source connection recovers.
 
-## Menu-bar app shows setup
+## Legacy 0.1.0 menu-bar app shows setup
 
 Create `~/Library/Application Support/OTP Grabber/client.json` with mode `600`:
 

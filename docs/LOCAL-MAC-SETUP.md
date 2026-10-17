@@ -1,9 +1,10 @@
 # Local macOS app setup and acceptance run
 
-This is the migration build of OTP Grabber. CI builds the macOS app and runs its
-Swift tests, but the installed app has not passed the live acceptance run below.
-Keep the 0.1.0 source agent and extension available until the native app passes
-every check.
+This is the native macOS migration build of OTP Grabber. CI builds it and runs
+its Swift tests. On the target Mac, the app has read fresh Messages codes across
+two signed releases without changing Full Disk Access. Gmail and the remaining
+live acceptance checks below still need confirmation. Keep the 0.1.0 source
+agent and extension available until those checks pass.
 
 ## Prepare Gmail
 
