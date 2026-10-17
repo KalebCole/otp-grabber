@@ -290,6 +290,15 @@ private struct PanelView: View {
                     Text("OTP Grabber").font(.headline)
                     Spacer()
                     Button("Settings") { settingsExpanded.toggle() }.buttonStyle(.plain)
+                    Button { NSApp.terminate(nil) } label: {
+                        Image(systemName: "xmark")
+                            .frame(width: 36, height: 36)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .help("Quit OTP Grabber")
+                    .accessibilityLabel("Quit OTP Grabber")
                 }
                 Text("Gmail: \(model.gmailStatus)").font(.caption).foregroundStyle(.secondary)
                 if settingsExpanded {
@@ -385,7 +394,6 @@ private struct PanelView: View {
                         .background(Color.gray.opacity(0.08)).cornerRadius(10)
                     }
                 }
-                Button("Quit OTP Grabber") { NSApp.terminate(nil) }.font(.caption)
             }
             .padding(18)
         }
