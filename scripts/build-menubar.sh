@@ -8,6 +8,29 @@ APP_NAME="OTP Grabber.app"
 APP="$DIST/$APP_NAME"
 ARCH="${ARCH:-$(uname -m)}"
 VERSION="${VERSION:-0.1.0}"
+SIGNING_MODE="${SIGNING_MODE:-development}"
+
+case "$SIGNING_MODE" in
+  development|release) ;;
+  *) echo "Unsupported signing mode: $SIGNING_MODE" >&2; exit 2 ;;
+esac
+
+if [[ "$SIGNING_MODE" == release ]]; then
+  FINGERPRINT_FILE="$ROOT/signing/identity.sha1"
+  [[ -f "$FINGERPRINT_FILE" ]] || {
+    echo "Missing $FINGERPRINT_FILE; complete the signing setup before publishing a release" >&2
+    exit 1
+  }
+  SIGNING_IDENTITY="$(tr -d '[:space:]' < "$FINGERPRINT_FILE" | tr '[:lower:]' '[:upper:]')"
+  [[ "$SIGNING_IDENTITY" =~ ^[0-9A-F]{40}$ ]] || {
+    echo "Invalid certificate fingerprint in $FINGERPRINT_FILE" >&2
+    exit 1
+  }
+  /usr/bin/security find-identity -v -p codesigning | /usr/bin/grep -Fq "$SIGNING_IDENTITY" || {
+    echo "Pinned signing identity is unavailable in the keychain" >&2
+    exit 1
+  }
+fi
 
 case "$ARCH" in
   arm64|x86_64) ;;
@@ -34,8 +57,13 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSMinimumSystemVersion</key><string>13.0</string>
 </dict></plist>
 PLIST
-/usr/bin/codesign --force --deep --sign - "$APP"
-/usr/bin/codesign --verify --deep --strict --verbose=2 "$APP"
+if [[ "$SIGNING_MODE" == release ]]; then
+  /usr/bin/codesign --force --sign "$SIGNING_IDENTITY" "$APP"
+  "$ROOT/scripts/verify-menubar-signature.sh" "$APP" --release
+else
+  /usr/bin/codesign --force --sign - "$APP"
+  "$ROOT/scripts/verify-menubar-signature.sh" "$APP" --development
+fi
 /usr/bin/plutil -lint "$APP/Contents/Info.plist"
 rm -f "$DIST/otp-grabber-menubar-macos-$ARCH.zip"
 /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$APP" "$DIST/otp-grabber-menubar-macos-$ARCH.zip"

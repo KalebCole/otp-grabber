@@ -1,8 +1,8 @@
 # OTP Grabber
 
 > A local macOS replacement is in progress. Its Swift source is not yet verified on
-> the target Mac. The 0.1.0 release and the setup below describe the current
-> supported build. See [local Mac setup and acceptance](docs/LOCAL-MAC-SETUP.md).
+> the target Mac. The 0.1.0 release and the legacy setup below describe the
+> current supported build. See [local Mac setup and acceptance](docs/LOCAL-MAC-SETUP.md).
 
 **The fresh verification code, already copied.**
 
@@ -61,7 +61,16 @@ Download the [latest release](https://github.com/KalebCole/otp-grabber/releases/
 **macOS menu bar**
 
 1. Extract `otp-grabber-menubar-macos-arm64.zip`.
-2. Move `OTP Grabber.app` to `/Applications` and open it.
+2. With this repo checked out on the Mac, install the extracted app at
+   `~/Applications/OTP Grabber.app` and register its login launch agent:
+
+   ```bash
+   scripts/install-menubar.sh "/path/to/extracted/OTP Grabber.app"
+   ```
+
+   The signed personal-release installer becomes available after the one-time
+   [signing setup](signing/README.md). For the legacy 0.1.0 ad hoc artifact, use
+   `scripts/install-menubar.sh --development "/path/to/extracted/OTP Grabber.app"`.
 3. Create `~/Library/Application Support/OTP Grabber/client.json`:
 
 ```json
@@ -72,6 +81,36 @@ Download the [latest release](https://github.com/KalebCole/otp-grabber/releases/
 ```
 
 Set the file to mode `600`, then reopen the app.
+
+### Personal native app releases
+
+For future native releases, create and back up one self-signed signing identity,
+save it in this repository's GitHub Actions secrets, and commit its **public**
+fingerprint as described in [personal release signing](signing/README.md). A
+`v*` tag then builds a release with that same identity. The workflow fails if
+the key or fingerprint is missing or mismatched; it never publishes an ad hoc
+fallback. Keep the private key and `.p12` out of Git.
+
+On each Mac, update this checkout, download and extract the matching macOS zip
+from the [GitHub release](https://github.com/KalebCole/otp-grabber/releases),
+then run:
+
+```bash
+scripts/install-menubar.sh "/path/to/extracted/OTP Grabber.app"
+```
+
+The installer verifies the signed app before replacing the existing copy at
+`~/Applications/OTP Grabber.app` and restores the previous copy if the updated
+app cannot launch. Install updates manually at this same path. The first switch
+from the old ad hoc signature to the stable identity may require **one new Full
+Disk Access grant**. For Messages, enable the installed OTP Grabber app under
+**System Settings → Privacy & Security → Full Disk Access**, then quit and
+reopen it. Later updates must be checked on the target Mac before permission
+retention is considered verified; [the test record](docs/research/2026-10-16-issue-9-full-disk-access-updates.md)
+excludes message text and codes.
+
+These self-signed builds are for personal use and are **not notarized**. macOS
+may require **Open Anyway** in Privacy & Security for a trusted download.
 
 ## Security model
 
@@ -85,7 +124,7 @@ Clients accept only loopback HTTP(S) or HTTPS `.ts.net` origins. The Tailscale h
 npm install
 PYTHON=python3.11 make test
 make check
-make package
+make package # requires the personal signing identity and GitHub-compatible release setup
 ```
 
 The suite covers extraction, source adapters, freshness ordering, archive idempotency and concurrency, API authentication and limits, Chrome state/API behavior, static web quality, Swift client behavior, and package construction.
