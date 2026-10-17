@@ -8,6 +8,15 @@ Security fixes are released on the latest tagged version. This project is pre-1.
 
 ## Trust boundary
 
+The native macOS app reads Gmail through the Gmail API and Messages from the
+local database on the same Mac. It requests read-only Gmail access, stores its
+refresh token and OAuth client secret in the macOS Keychain, and writes selected
+codes to the local clipboard. It does not require the source agent or Tailscale.
+The [Keychain dependency and password prompt](https://github.com/KalebCole/otp-grabber/issues/20)
+remain open issues for the native app.
+
+For the legacy source-agent and Chrome-extension path:
+
 - The source agent runs on an Apple device that already has access to Gmail and the local Messages database.
 - The HTTP service binds to loopback only. Remote clients reach it through Tailscale Serve.
 - Tailscale Funnel and public reverse proxies are outside the supported design.
@@ -19,9 +28,19 @@ OTP Grabber reduces exposure; it does not make a compromised Mac, browser profil
 
 ## Required permissions
 
-The source device may require macOS Full Disk Access for the process that reads Messages. Gmail access uses the locally configured Google Workspace CLI session. The menu-bar app needs clipboard write access through standard macOS APIs. Approve permissions only for binaries and paths you installed from this repository or a verified release.
+The native app needs Full Disk Access to read Messages and uses its own Gmail
+OAuth connection. The legacy source agent needs Full Disk Access for its Python
+executable and uses the locally configured Google Workspace CLI session.
+Approve permissions only for binaries and paths you installed from this
+repository or a verified release.
 
 ## Safe deployment
+
+For the native app, install the verified signed release at
+`~/Applications/OTP Grabber.app` and grant Full Disk Access to that installed
+copy. Keep the signing identity stable across updates.
+
+For the legacy source-agent path:
 
 1. Generate a fresh, high-entropy authentication value during installation.
 2. Keep the service bound to `127.0.0.1`.

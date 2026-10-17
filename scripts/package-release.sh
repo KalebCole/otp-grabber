@@ -19,7 +19,8 @@ mkdir -p "$DIST"
   /usr/bin/zip -qry "$DIST/otp-grabber-chrome-${VERSION}.zip" .
 )
 
-DIST_DIR="$DIST" VERSION="$VERSION" "$ROOT/scripts/build-menubar.sh"
+DIST_DIR="$DIST" VERSION="$VERSION" SIGNING_MODE=release "$ROOT/scripts/build-menubar.sh"
+"$ROOT/scripts/verify-menubar-signature.sh" "$DIST/OTP Grabber.app" --release
 
 git -C "$ROOT" archive \
   --format=tar.gz \

@@ -1,23 +1,48 @@
 # OTP Grabber
 
+> The native macOS app is installed on the target Mac and has read Messages
+> successfully across a signed update. Gmail and the remaining live checks are
+> still in progress. The Python agent and Chrome extension remain available.
+> See [local Mac setup and acceptance](docs/LOCAL-MAC-SETUP.md).
+
 **The fresh verification code, already copied.**
 
-OTP Grabber watches Gmail and Messages on a trusted Mac, then hands the newest code to Chrome or a macOS menu-bar app over your private Tailscale network. The client copies first. Gmail archives only after clipboard success.
+The native macOS app reads Gmail and Messages on your Mac and copies the newest
+eligible code. The older Python agent and Chrome extension can also hand off
+codes over your private Tailscale network.
 
 [Website](https://kalebcole.github.io/otp-grabber/) · [Latest release](https://github.com/KalebCole/otp-grabber/releases/latest) · [Architecture](docs/ARCHITECTURE.md) · [Troubleshooting](docs/TROUBLESHOOTING.md)
 
 ## What ships
 
-- **Source agent:** Python 3.11+, launchd, Gmail via `gws`, Messages via the local database
-- **Calm Card:** Chrome MV3 extension with automatic copy and hidden recent history
-- **Menu bar:** native Swift/AppKit client packaged as `OTP Grabber.app`
-- **Private transport:** loopback HTTP behind authenticated Tailscale Serve HTTPS
+- **Native menu bar app:** Swift/AppKit app that reads Gmail and Messages locally,
+  copies a recent code, and keeps one day of local history
+- **Legacy source agent and Chrome extension:** Python, `gws`, and an authenticated
+  Tailscale Serve connection for the older remote handoff
 
 No content scripts. No browsing permission. No public proxy. No credentials in source control.
 
 ## Quick start
 
-### 1. Install the source agent
+### Native macOS app (personal preview)
+
+On the Mac that receives Gmail and Messages, clone this repository, download the
+[latest signed release](https://github.com/KalebCole/otp-grabber/releases/latest),
+and extract `otp-grabber-menubar-macos-arm64.zip`. Then run:
+
+```bash
+git clone https://github.com/KalebCole/otp-grabber.git
+cd otp-grabber
+scripts/install-menubar.sh "/path/to/extracted/OTP Grabber.app"
+```
+
+The app installs at `~/Applications/OTP Grabber.app` and registers a login
+launch agent. Grant this installed app **Full Disk Access** in System Settings
+for Messages, then follow [local Mac setup](docs/LOCAL-MAC-SETUP.md) to connect
+Gmail. The native app does not use `client.json`, the Python source agent, or
+Tailscale.
+
+### Legacy source agent and Chrome extension
 
 On the Mac that owns Gmail and Messages access:
 
@@ -43,9 +68,7 @@ The installer creates a random token at:
 
 The file and its parent directory are private to your macOS user.
 
-### 2. Install a client
-
-Download the [latest release](https://github.com/KalebCole/otp-grabber/releases/latest).
+Download a Chrome extension zip from a [GitHub release](https://github.com/KalebCole/otp-grabber/releases).
 
 **Chrome**
 
@@ -54,26 +77,45 @@ Download the [latest release](https://github.com/KalebCole/otp-grabber/releases/
 3. Select the extracted extension directory.
 4. Open **Connection settings**. Enter the private Tailscale HTTPS origin and source-agent token.
 
-**macOS menu bar**
+### Personal native app releases
 
-1. Extract `otp-grabber-menubar-macos-arm64.zip`.
-2. Move `OTP Grabber.app` to `/Applications` and open it.
-3. Create `~/Library/Application Support/OTP Grabber/client.json`:
+For future native releases, create and back up one self-signed signing identity,
+save it in this repository's GitHub Actions secrets, and commit its **public**
+fingerprint as described in [personal release signing](signing/README.md). A
+`v*` tag then builds a release with that same identity. The workflow fails if
+the key or fingerprint is missing or mismatched; it never publishes an ad hoc
+fallback. Keep the private key and `.p12` out of Git.
 
-```json
-{
-  "server_url": "https://source-device.example-tailnet.ts.net:8877",
-  "token": "paste-the-source-agent-token"
-}
+On each Mac, update this checkout, download and extract the matching macOS zip
+from the [GitHub release](https://github.com/KalebCole/otp-grabber/releases),
+then run:
+
+```bash
+scripts/install-menubar.sh "/path/to/extracted/OTP Grabber.app"
 ```
 
-Set the file to mode `600`, then reopen the app.
+The installer verifies the signed app before replacing the existing copy at
+`~/Applications/OTP Grabber.app` and restores the previous copy if the updated
+app cannot launch. Install updates manually at this same path. The first switch
+from the old ad hoc signature to the stable identity may require **one new Full
+Disk Access grant**. For Messages, enable the installed OTP Grabber app under
+**System Settings → Privacy & Security → Full Disk Access**, then quit and
+reopen it. On the target Mac, `v0.0.1` and `v0.0.2` both read fresh Messages
+codes without changing Full Disk Access between installs; [the test record](docs/research/2026-10-16-issue-9-full-disk-access-updates.md)
+excludes message text and codes.
+
+These self-signed builds are for personal use and are **not notarized**. macOS
+may require **Open Anyway** in Privacy & Security for a trusted download.
 
 ## Security model
 
-The source agent is the only component with Gmail and Messages access. It binds to `127.0.0.1` in code. Tailscale Serve is the only supported remote path, and every API request requires a bearer token compared in constant time.
+The native app reads Gmail through the Gmail API and Messages from the local
+database. It stores Gmail credentials in the Mac's Keychain; see [issue #20](https://github.com/KalebCole/otp-grabber/issues/20)
+for the reported password prompt and request to remove that dependency.
 
-Clients accept only loopback HTTP(S) or HTTPS `.ts.net` origins. The Tailscale helper rejects Funnel and public-exposure flags. See [SECURITY.md](SECURITY.md) for the threat model and reporting process.
+The legacy source agent binds to `127.0.0.1` and uses authenticated Tailscale
+Serve for remote clients. See [SECURITY.md](SECURITY.md) for that path's threat
+model and reporting process.
 
 ## Develop
 
@@ -81,7 +123,7 @@ Clients accept only loopback HTTP(S) or HTTPS `.ts.net` origins. The Tailscale h
 npm install
 PYTHON=python3.11 make test
 make check
-make package
+make package # requires the personal signing identity and GitHub-compatible release setup
 ```
 
 The suite covers extraction, source adapters, freshness ordering, archive idempotency and concurrency, API authentication and limits, Chrome state/API behavior, static web quality, Swift client behavior, and package construction.

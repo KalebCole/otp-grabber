@@ -14,6 +14,8 @@ artifacts/
 *.sqlite*
 *.pem
 *.key
+*.p12
+*.pfx
 agent/config.json
 extension/config.json
 menubar/client.json

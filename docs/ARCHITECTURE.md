@@ -1,8 +1,31 @@
 # Architecture
 
-## Trust boundary
+## Native macOS app
 
-OTP Grabber has one credential-bearing component: the source agent. It runs on the Mac that already has access to Gmail and Messages. Clients never receive Gmail OAuth state or direct Messages database access.
+The personal macOS app runs on the Mac that receives Gmail and Messages. It
+calls the Gmail API with a read-only OAuth scope, reads the local Messages
+database in SQLite read-only mode, selects a recent code, and copies it to the
+Mac clipboard. It keeps a local one-day history. The app currently stores its
+Gmail refresh token and OAuth client secret in the macOS Keychain; [issue #20](https://github.com/KalebCole/otp-grabber/issues/20)
+tracks the request to remove that dependency and password prompts.
+
+```text
+Gmail API ────┐
+              ├─ native macOS app → recent-code selection → clipboard
+Messages DB ─┘                    ↘ local one-day history
+```
+
+The native app does not need the Python agent, Tailscale Serve, or Chrome
+extension. Tagged personal releases are signed with the pinned self-signed
+identity described in [personal release signing](../signing/README.md).
+
+## Legacy source agent and Chrome extension
+
+### Trust boundary
+
+In the legacy remote path, the source agent holds the credentials and runs on
+the Mac that has Gmail and Messages access. Remote clients do not receive Gmail
+OAuth state or direct Messages database access.
 
 ```text
 Gmail via gws ─┐
