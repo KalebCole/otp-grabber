@@ -15,10 +15,7 @@ personal_values="$(git grep -nEI '/Users/[A-Za-z0-9._-]+|tail[0-9a-f]{6,}|[A-Za-
   ':!.github/skills/impeccable/**' ':!scripts/check-repository.sh' || true)"
 [[ -z "$personal_values" ]] || fail "machine-specific values found:\n$personal_values"
 
-inline_web_code="$(git grep -nEI '<script[^>]*>[^<]|\son(click|load|error)=' -- 'docs/*.html' || true)"
-[[ -z "$inline_web_code" ]] || fail "inline executable web code found:\n$inline_web_code"
-
-for required in README.md SECURITY.md LICENSE docs/index.html .github/workflows/verify.yml; do
+for required in README.md SECURITY.md LICENSE docs/LOCAL-MAC-SETUP.md .github/workflows/verify.yml; do
   [[ -f "$required" ]] || fail "missing $required"
 done
 

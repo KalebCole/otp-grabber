@@ -1,5 +1,8 @@
 # OTP Grabber
 
+> Historical product brief for the legacy remote setup. The current native
+> Mac app and installation path are documented in [README.md](README.md).
+
 ## Product
 
 OTP Grabber removes the repetitive handoff between a verification prompt and the code waiting in Gmail or Messages.
@@ -21,7 +24,8 @@ OTP Grabber removes the repetitive handoff between a verification prompt and the
 - Chrome MV3 popup on the MacBook.
 - Native macOS menu-bar application on the MacBook.
 - Python source agent on a Mac mini or Apple device.
-- GitHub Pages landing page that persuades users to install and gives an AI agent a precise setup path.
+- The former GitHub Pages landing page was retired after the native app became
+  the main installation path.
 
 ## Product principles
 

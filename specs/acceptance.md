@@ -1,5 +1,8 @@
 # Acceptance Criteria
 
+> Historical acceptance criteria for the legacy remote setup. The current
+> native Mac checks are in [local Mac setup](../docs/LOCAL-MAC-SETUP.md).
+
 ## Source agent
 
 - Binds only to `127.0.0.1` on a configurable port.
@@ -35,15 +38,15 @@
 - Starts at login via a documented user LaunchAgent installer.
 - Can be built and packaged with Command Line Tools only; no Xcode project required.
 
-## Landing and release
+## Historical landing and release checks (retired)
 
-- Static GitHub Pages site in `docs/`, no analytics or trackers.
+- The former static GitHub Pages site in `docs/` has been retired.
 - Mobile and desktop responsive, keyboard accessible, reduced-motion aware.
 - CTA points to latest GitHub release and offers a copyable AI-agent setup prompt.
 - Includes an honest local-first architecture diagram and permission disclosure.
 - Impeccable `detect` passes with zero unwaived findings.
-- GitHub Actions runs tests, builds client artifacts, and deploys Pages.
-- Repository description includes the live Pages URL and topics.
+- GitHub Actions runs tests and builds client artifacts. Pages deployment has
+  been retired.
 - Public repository contains no personal hostname, email, phone, user path, token, private key, database, or log.
 
 ## End-to-end
